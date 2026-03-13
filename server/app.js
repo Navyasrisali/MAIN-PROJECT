@@ -32,6 +32,15 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 // Test email configuration on startup
 testEmailConnection();
 
+// Root route for deployment checks
+app.get('/', (req, res) => {
+  res.json({
+    message: 'Backend is running',
+    apiBase: '/api',
+    health: '/health'
+  });
+});
+
 // Register all routes
 app.use('/', routes);
 
