@@ -1,0 +1,81 @@
+/* Additional styles for completed sessions */
+.completed-session {
+  border: 2px solid #28a745;
+  background: linear-gradient(135deg, #f8fff8 0%, #e8f5e8 100%);
+  position: relative;
+}
+
+.completed-session::before {
+  content: "✅ COMPLETED";
+  position: absolute;
+  top: -10px;
+  right: 15px;
+  background: #28a745;
+  color: white;
+  padding: 4px 12px;
+  border-radius: 15px;
+  font-size: 0.75rem;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.status-completed {
+  color: #28a745;
+  font-weight: bold;
+  background: #d4edda;
+  padding: 4px 8px;
+  border-radius: 8px;
+  border: 1px solid #c3e6cb;
+}
+
+.completion-notice {
+  background: #e8f5e8;
+  border: 1px solid #28a745;
+  border-radius: 8px;
+  padding: 12px;
+  margin-top: 10px;
+}
+
+.completion-notice p {
+  margin: 4px 0;
+  color: #155724;
+}
+
+.completion-notice p:first-child {
+  font-weight: bold;
+  color: #28a745;
+}
+
+.review-btn.primary {
+  background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
+  color: #333;
+  border: 2px solid #ffd700;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(255, 215, 0, 0.3);
+}
+
+.review-btn.primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(255, 215, 0, 0.4);
+  background: linear-gradient(135deg, #ffed4e 0%, #ffd700 100%);
+}
+
+.review-btn.primary:active {
+  transform: translateY(0);
+}
+
+.review-indicator {
+  animation: pulse 2s infinite;
+  margin-left: 5px;
+}
+
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.5; }
+  100% { opacity: 1; }
+}

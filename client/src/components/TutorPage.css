@@ -1,0 +1,481 @@
+.tutor-container {
+  min-height: calc(100vh - 80px);
+  padding: 2rem;
+  background: #f8f9fa;
+}
+
+.subject-setup {
+  max-width: 600px;
+  margin: 0 auto;
+  background: white;
+  padding: 3rem;
+  border-radius: 16px;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+  text-align: center;
+}
+
+.subject-setup h2 {
+  color: #333;
+  margin-bottom: 1rem;
+}
+
+.subject-setup p {
+  color: #666;
+  margin-bottom: 2rem;
+}
+
+.subject-form {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.subject-form input {
+  flex: 1;
+  padding: 1rem;
+  border: 2px solid #e1e5e9;
+  border-radius: 8px;
+  font-size: 1rem;
+}
+
+.subject-form input:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.subject-form button {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 1rem 1.5rem;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.subjects-list h3 {
+  color: #333;
+  margin-bottom: 1rem;
+}
+
+.subjects-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: center;
+  margin-bottom: 2rem;
+}
+
+.subject-tag {
+  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.remove-subject {
+  background: rgba(255, 255, 255, 0.3);
+  border: none;
+  color: white;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
+.complete-setup-btn {
+  background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+  color: white;
+  padding: 1rem 2rem;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* Main Tutor Dashboard */
+.tutor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.tutor-header h2 {
+  color: #333;
+  font-size: 2rem;
+}
+
+.status-control {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.status-btn {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.status-btn.online {
+  background: #4caf50;
+  color: white;
+}
+
+.status-btn.offline {
+  background: #f44336;
+  color: white;
+}
+
+.tutor-content {
+  display: grid;
+  grid-template-columns: 1fr 2fr 1fr;
+  gap: 2rem;
+}
+
+.subjects-section, .requests-section, .stats-section {
+  background: white;
+  padding: 2rem;
+  border-radius: 16px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.subjects-section h3, .requests-section h3, .stats-section h4 {
+  color: #333;
+  margin-bottom: 1rem;
+}
+
+.subjects-display {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.subject-badge {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  font-size: 0.9rem;
+}
+
+.edit-subjects-btn {
+  background: #f8f9fa;
+  color: #333;
+  padding: 0.5rem 1rem;
+  border: 2px solid #e9ecef;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.edit-subjects-btn:hover {
+  background: #e9ecef;
+}
+
+.no-requests {
+  text-align: center;
+  color: #666;
+  padding: 2rem;
+}
+
+.requests-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.request-card {
+  border: 2px solid #e9ecef;
+  border-radius: 12px;
+  padding: 1.5rem;
+  transition: border-color 0.3s ease;
+}
+
+.request-card:hover {
+  border-color: #667eea;
+}
+
+.request-info h4 {
+  color: #333;
+  margin-bottom: 0.5rem;
+}
+
+.request-info p {
+  color: #666;
+  margin-bottom: 0.25rem;
+  font-size: 0.9rem;
+}
+
+.request-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.accept-btn {
+  background: #4caf50;
+  color: white;
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.reject-btn {
+  background: #f44336;
+  color: white;
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.stats-section {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.stat-card {
+  text-align: center;
+}
+
+.rating {
+  font-size: 1.5rem;
+  margin-top: 0.5rem;
+}
+
+.rating span {
+  font-size: 1rem;
+  color: #666;
+  margin-left: 0.5rem;
+}
+
+@media (max-width: 1200px) {
+  .tutor-content {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .tutor-container {
+    padding: 1rem;
+  }
+  
+  .tutor-header {
+    flex-direction: column;
+    gap: 1rem;
+    text-align: center;
+  }
+  
+  .subject-form {
+    flex-direction: column;
+  }
+  
+  .subjects-section, .requests-section, .stats-section {
+    padding: 1.5rem;
+  }
+  
+  .request-actions {
+    flex-direction: column;
+  }
+}
+
+/* Tab Navigation */
+.tabs-navigation {
+  display: flex;
+  margin-bottom: 1.5rem;
+  border-bottom: 2px solid #e9ecef;
+  background: #f8f9fa;
+  border-radius: 8px 8px 0 0;
+}
+
+.tab-btn {
+  background: none;
+  border: none;
+  color: #666;
+  padding: 1rem 2rem;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border-bottom: 3px solid transparent;
+  flex: 1;
+}
+
+.tab-btn:hover {
+  color: #333;
+  background: rgba(102, 126, 234, 0.1);
+}
+
+.tab-btn.active {
+  color: #667eea;
+  border-bottom-color: #667eea;
+  background: rgba(102, 126, 234, 0.15);
+  font-weight: 600;
+}
+
+/* Sessions Section */
+.sessions-section {
+  margin-bottom: 2rem;
+}
+
+.sessions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.session-card {
+  border: 2px solid #e9ecef;
+  border-radius: 12px;
+  padding: 1.5rem;
+  background: white;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.session-card:hover {
+  border-color: #667eea;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px rgba(102, 126, 234, 0.2);
+}
+
+.session-info {
+  flex: 1;
+}
+
+.session-info h4 {
+  margin: 0 0 0.5rem 0;
+  color: #333;
+  font-size: 1.2rem;
+}
+
+.session-info p {
+  margin: 0.25rem 0;
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.status-accepted {
+  color: #28a745;
+  font-weight: bold;
+  background: rgba(40, 167, 69, 0.1);
+  padding: 0.2rem 0.5rem;
+  border-radius: 12px;
+  font-size: 0.8rem;
+}
+
+.session-actions {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.meet-link-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-weight: 600;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.3s ease;
+  font-size: 0.9rem;
+}
+
+.meet-link-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px rgba(102, 126, 234, 0.3);
+  color: white;
+  text-decoration: none;
+}
+
+.copy-link-btn {
+  background: #f8f9fa;
+  color: #666;
+  border: 2px solid #e9ecef;
+  padding: 0.75rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 0.85rem;
+}
+
+.copy-link-btn:hover {
+  background: #e9ecef;
+  color: #333;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.no-sessions {
+  text-align: center;
+  padding: 2rem;
+  color: #666;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.no-sessions p:first-child {
+  font-size: 1.1rem;
+  margin-bottom: 0.5rem;
+  color: #333;
+}
+
+/* Inbox Banner Styles */
+.inbox-banner {
+  background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%);
+  border: 2px solid #2196f3;
+  border-radius: 12px;
+  padding: 1rem 1.5rem;
+  text-align: center;
+  box-shadow: 0 4px 12px rgba(33, 150, 243, 0.2);
+  animation: glow 2s ease-in-out infinite alternate;
+  margin-bottom: 1rem;
+}
+
+@keyframes glow {
+  from {
+    box-shadow: 0 4px 12px rgba(33, 150, 243, 0.2);
+  }
+  to {
+    box-shadow: 0 6px 20px rgba(33, 150, 243, 0.4);
+  }
+}
+
+.banner-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.banner-icon {
+  font-size: 1.2rem;
+}
+
+.banner-text {
+  color: #1976d2;
+  font-weight: 600;
+  font-size: 1rem;
+}

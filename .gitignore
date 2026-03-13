@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+client/node_modules/
+server/node_modules/
+
+# Environment variables
+.env
+server/.env
+client/.env
+
+# Build output
+client/build/
+
+# Database data file (local persistent storage)
+server/data/database.json
+
+# Uploaded files
+server/uploads/certificates/*
+!server/uploads/certificates/.gitkeep
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
