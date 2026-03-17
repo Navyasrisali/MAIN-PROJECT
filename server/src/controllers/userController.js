@@ -7,10 +7,16 @@ class UserController {
       const { role, subjects } = req.body;
       
       const user = db.users.find(u => u.id === req.user.id);
+      if (!user) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+
       user.role = role;
       if (role === 'tutor' && subjects) {
         user.subjects = subjects;
       }
+
+      db.save();
       
       res.json({
         user: {
