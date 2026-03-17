@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import './AdminDashboard.css';
 
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+
 const AdminDashboard = () => {
   const [pendingVerifications, setPendingVerifications] = useState([]);
   const [allTutors, setAllTutors] = useState([]);
@@ -21,12 +23,12 @@ const AdminDashboard = () => {
       const token = localStorage.getItem('token');
       
       if (selectedTab === 'pending') {
-        const response = await axios.get('http://localhost:5000/api/admin/verifications/pending', {
+        const response = await axios.get(`${API_BASE_URL}/api/admin/verifications/pending`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         setPendingVerifications(response.data);
       } else if (selectedTab === 'all') {
-        const response = await axios.get('http://localhost:5000/api/admin/tutors', {
+        const response = await axios.get(`${API_BASE_URL}/api/admin/tutors`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         setAllTutors(response.data);
@@ -44,7 +46,7 @@ const AdminDashboard = () => {
     
     try {
       const token = localStorage.getItem('token');
-      await axios.put(`http://localhost:5000/api/admin/tutors/${tutorId}/approve`, {}, {
+      await axios.put(`${API_BASE_URL}/api/admin/tutors/${tutorId}/approve`, {}, {
         headers: { Authorization: `Bearer ${token}` }
       });
       alert('Tutor approved successfully!');
@@ -63,7 +65,7 @@ const AdminDashboard = () => {
     
     try {
       const token = localStorage.getItem('token');
-      await axios.put(`http://localhost:5000/api/admin/tutors/${selectedTutorForRejection}/reject`, 
+      await axios.put(`${API_BASE_URL}/api/admin/tutors/${selectedTutorForRejection}/reject`, 
         { reason: rejectionReason },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -106,7 +108,7 @@ const AdminDashboard = () => {
                 <td>
                   <button 
                     className="btn-view"
-                    onClick={() => viewCertificate(`http://localhost:5000${tutor.certificateUrl}`)}
+                    onClick={() => viewCertificate(`${API_BASE_URL}${tutor.certificateUrl}`)}
                   >
                     View Certificate
                   </button>
@@ -168,7 +170,7 @@ const AdminDashboard = () => {
                   {tutor.certificateUrl && (
                     <button 
                       className="btn-view"
-                      onClick={() => viewCertificate(`http://localhost:5000${tutor.certificateUrl}`)}
+                      onClick={() => viewCertificate(`${API_BASE_URL}${tutor.certificateUrl}`)}
                     >
                       View
                     </button>

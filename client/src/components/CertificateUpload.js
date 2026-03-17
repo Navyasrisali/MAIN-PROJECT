@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import './CertificateUpload.css';
 
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+
 const CertificateUpload = ({ user, updateUser }) => {
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploading, setUploading] = useState(false);
@@ -47,7 +49,7 @@ const CertificateUpload = ({ user, updateUser }) => {
       formData.append('certificate', selectedFile);
 
       const token = localStorage.getItem('token');
-      const response = await axios.post('http://localhost:5000/api/upload-certificate', formData, {
+      const response = await axios.post(`${API_BASE_URL}/api/upload-certificate`, formData, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'multipart/form-data'
@@ -116,7 +118,7 @@ const CertificateUpload = ({ user, updateUser }) => {
         <div className="pending-notice">
           <p>✓ Certificate uploaded successfully! Awaiting admin verification.</p>
           <a 
-            href={`http://localhost:5000${certificateUrl}`} 
+            href={`${API_BASE_URL}${certificateUrl}`} 
             target="_blank" 
             rel="noopener noreferrer"
             className="view-certificate-link"
@@ -131,7 +133,7 @@ const CertificateUpload = ({ user, updateUser }) => {
           <p>🎉 Congratulations! Your certificate has been verified. You can now start teaching!</p>
           {certificateUrl && (
             <a 
-              href={`http://localhost:5000${certificateUrl}`} 
+              href={`${API_BASE_URL}${certificateUrl}`} 
               target="_blank" 
               rel="noopener noreferrer"
               className="view-certificate-link"

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import axios from 'axios';
 import io from 'socket.io-client';
 import './App.css';
@@ -13,8 +13,11 @@ import LearnerPage from './components/LearnerPage';
 import Profile from './components/Profile';
 import AdminDashboard from './components/AdminDashboard';
 
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+const SOCKET_URL = process.env.REACT_APP_SOCKET_URL || API_BASE_URL;
+
 // Set up axios defaults
-axios.defaults.baseURL = 'http://localhost:5000/api';
+axios.defaults.baseURL = `${API_BASE_URL}/api`;
 
 function App() {
   const [user, setUser] = useState(null);
@@ -36,7 +39,7 @@ function App() {
           setUser(userData);
           
           // Initialize socket connection
-          const newSocket = io('http://localhost:5000');
+          const newSocket = io(SOCKET_URL);
           console.log('🔌 Socket connecting to server...');
           
           newSocket.on('connect', () => {
@@ -114,7 +117,7 @@ function App() {
     setUser(userData);
     
     // Initialize socket connection
-    const newSocket = io('http://localhost:5000');
+    const newSocket = io(SOCKET_URL);
     console.log('🔌 Socket connecting to server (login)...');
     
     newSocket.on('connect', () => {
@@ -146,7 +149,7 @@ function App() {
   const logout = async () => {
     try {
       // Call logout endpoint to set user offline
-      await axios.post('/api/logout');
+      await axios.post('/logout');
     } catch (error) {
       console.error('Error during logout:', error);
       // Continue with logout even if API call fails
