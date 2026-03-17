@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import './CertificateUpload.css';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://mern-learning-backend.onrender.com';
 
 const CertificateUpload = ({ user, updateUser }) => {
   const [selectedFile, setSelectedFile] = useState(null);
