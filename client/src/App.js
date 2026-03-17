@@ -13,8 +13,16 @@ import LearnerPage from './components/LearnerPage';
 import Profile from './components/Profile';
 import AdminDashboard from './components/AdminDashboard';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://mern-learning-backend.onrender.com';
-const SOCKET_URL = process.env.REACT_APP_SOCKET_URL || API_BASE_URL;
+const FALLBACK_BACKEND_URL = 'https://mern-learning-backend.onrender.com';
+const resolveBackendUrl = (value) => {
+  if (!value || value.includes('your-render-backend-url.onrender.com')) {
+    return FALLBACK_BACKEND_URL;
+  }
+  return value;
+};
+
+const API_BASE_URL = resolveBackendUrl(process.env.REACT_APP_API_URL);
+const SOCKET_URL = resolveBackendUrl(process.env.REACT_APP_SOCKET_URL || API_BASE_URL);
 
 // Set up axios defaults
 axios.defaults.baseURL = `${API_BASE_URL}/api`;

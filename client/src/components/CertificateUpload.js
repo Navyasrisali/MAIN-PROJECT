@@ -2,7 +2,12 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import './CertificateUpload.css';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://mern-learning-backend.onrender.com';
+const FALLBACK_BACKEND_URL = 'https://mern-learning-backend.onrender.com';
+const API_BASE_URL =
+  process.env.REACT_APP_API_URL &&
+  !process.env.REACT_APP_API_URL.includes('your-render-backend-url.onrender.com')
+    ? process.env.REACT_APP_API_URL
+    : FALLBACK_BACKEND_URL;
 
 const CertificateUpload = ({ user, updateUser }) => {
   const [selectedFile, setSelectedFile] = useState(null);
