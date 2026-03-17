@@ -346,7 +346,25 @@ const TutorPage = ({ user, updateUser, notifications, setNotifications, socket }
   const handleStartJitsiMeeting = (session) => {
     const fallbackLink = `https://meet.jit.si/peer-${session.id}`;
     const meetingLink = session.meetingLink || fallbackLink;
-    window.open(meetingLink, '_blank', 'noopener,noreferrer');
+
+    const meetingWindow = window.open(meetingLink, '_blank', 'noopener,noreferrer');
+    if (!meetingWindow) {
+      alert('Unable to open Jitsi meeting. Please allow pop-ups for this site.');
+      return;
+    }
+
+    // Auto-complete session when tutor closes the Jitsi tab/window.
+    const closeWatcher = setInterval(async () => {
+      if (meetingWindow.closed) {
+        clearInterval(closeWatcher);
+        try {
+          await completeSession(session.id);
+          await fetchSessions();
+        } catch (error) {
+          console.error('Error auto-completing session after Jitsi close:', error);
+        }
+      }
+    }, 2000);
   };
 
   if (subjectSetup) {
