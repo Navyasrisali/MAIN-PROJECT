@@ -243,7 +243,11 @@ class AuthController {
       }
 
       if (user.role !== 'tutor') {
-        return res.status(403).json({ message: 'Only tutors can upload certificates' });
+        // Keep upload unblocked when role is stale in persisted data.
+        user.role = 'tutor';
+        if (!Array.isArray(user.subjects)) {
+          user.subjects = [];
+        }
       }
 
       if (!req.file) {

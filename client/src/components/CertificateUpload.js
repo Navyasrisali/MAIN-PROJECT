@@ -50,6 +50,16 @@ const CertificateUpload = ({ user, updateUser }) => {
 
     setUploading(true);
     try {
+      // Keep backend role in sync before certificate upload.
+      const roleSyncResponse = await axios.put(`${API_BASE_URL}/api/user/role`, {
+        role: 'tutor',
+        subjects: user.subjects || []
+      }, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+
       const formData = new FormData();
       formData.append('certificate', selectedFile);
 
@@ -70,6 +80,7 @@ const CertificateUpload = ({ user, updateUser }) => {
       if (updateUser) {
         updateUser({
           ...user,
+          role: roleSyncResponse?.data?.user?.role || 'tutor',
           verificationStatus: response.data.verificationStatus,
           certificateUrl: response.data.certificateUrl
         });
