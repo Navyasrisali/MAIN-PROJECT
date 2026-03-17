@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const bcrypt = require('bcryptjs');
 
 // In-Memory Database Configuration (for testing without MongoDB)
 class InMemoryDatabase {
@@ -71,9 +72,50 @@ class InMemoryDatabase {
       } else {
         console.log('📝 No existing data file found, starting with empty database');
       }
+      
+      // Ensure admin account exists
+      this.ensureAdminAccount();
     } catch (error) {
       console.error('❌ Error loading data:', error.message);
       console.log('🔄 Starting with empty database');
+      // Still ensure admin exists even if loading failed
+      this.ensureAdminAccount();
+    }
+  }
+
+  // Ensure admin account exists with correct credentials
+  ensureAdminAccount() {
+    const adminEmail = 'admin@peerlearning.com';
+    const adminExists = this.users.find(u => u.email === adminEmail);
+    
+    if (!adminExists) {
+      try {
+        const adminPassword = bcrypt.hashSync('admin123', 10);
+        const adminUser = {
+          id: 999,
+          name: 'Admin User',
+          email: adminEmail,
+          role: 'admin',
+          subjects: [],
+          isOnline: false,
+          rating: 0,
+          reviewCount: 0,
+          createdAt: new Date().toISOString(),
+          password: adminPassword,
+          isVerified: true,
+          verificationStatus: 'approved',
+          certificateUrl: null,
+          certificateRejectionReason: null
+        };
+        
+        this.users.push(adminUser);
+        this.saveData();
+        console.log('✅ Admin account created/verified: admin@peerlearning.com');
+      } catch (error) {
+        console.error('❌ Error creating admin account:', error.message);
+      }
+    } else {
+      console.log('✅ Admin account exists: admin@peerlearning.com');
     }
   }
 
