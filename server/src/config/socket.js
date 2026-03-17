@@ -7,9 +7,21 @@ class SocketManager {
   }
 
   initialize(server) {
+    const allowedOrigins = [
+      "http://localhost:3000",
+      "http://localhost:3001",
+      "http://localhost:3002",
+      "http://localhost:3003",
+      "https://navyasrisali.github.io"
+    ];
+
+    if (process.env.FRONTEND_URL) {
+      allowedOrigins.push(process.env.FRONTEND_URL);
+    }
+
     this.io = socketIO(server, {
       cors: {
-        origin: ["http://localhost:3000", "http://localhost:3001", "http://localhost:3002", "http://localhost:3003"],
+        origin: allowedOrigins,
         methods: ["GET", "POST"]
       }
     });
@@ -40,59 +52,6 @@ class SocketManager {
           console.log(`⚠️ Socket join: User with ID ${userId} not found in users array`);
         }
       });
-      
-      // WebRTC Signaling Events
-      socket.on('webrtc:offer', ({ to, offer, requestId }) => {
-        if (!to) {
-          console.error('❌ WebRTC offer missing "to" parameter');
-          return;
-        }
-        const toStr = String(to);
-        console.log(`📞 WebRTC offer from socket ${socket.id} (user ${this.connectedUsers.get(socket.id)}) to room ${toStr} for request ${requestId}`);
-        this.io.to(toStr).emit('webrtc:offer', {
-          from: this.connectedUsers.get(socket.id),
-          offer,
-          requestId
-        });
-      });
-
-      socket.on('webrtc:answer', ({ to, answer, requestId }) => {
-        if (!to) {
-          console.error('❌ WebRTC answer missing "to" parameter');
-          return;
-        }
-        const toStr = String(to);
-        console.log(`📞 WebRTC answer from socket ${socket.id} (user ${this.connectedUsers.get(socket.id)}) to room ${toStr} for request ${requestId}`);
-        this.io.to(toStr).emit('webrtc:answer', {
-          from: this.connectedUsers.get(socket.id),
-          answer,
-          requestId
-        });
-      });
-
-      socket.on('webrtc:ice-candidate', ({ to, candidate, requestId }) => {
-        if (!to) {
-          console.error('❌ WebRTC ICE candidate missing "to" parameter');
-          return;
-        }
-        const toStr = String(to);
-        console.log(`🧊 ICE candidate from socket ${socket.id} (user ${this.connectedUsers.get(socket.id)}) to room ${toStr}`);
-        this.io.to(toStr).emit('webrtc:ice-candidate', {
-          from: this.connectedUsers.get(socket.id),
-          candidate,
-          requestId
-        });
-      });
-
-      socket.on('webrtc:end-call', ({ to, requestId }) => {
-        if (!to) {
-          console.error('❌ WebRTC end-call missing "to" parameter');
-          return;
-        }
-        console.log(`📴 Call ended by ${socket.id} for request ${requestId}`);
-        this.io.to(to.toString()).emit('webrtc:end-call', { requestId });
-      });
-
       socket.on('disconnect', () => {
         console.log('User disconnected:', socket.id);
         

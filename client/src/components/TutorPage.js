@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import NotificationBar from './NotificationBar';
 import CertificateUpload from './CertificateUpload';
-import VideoCall from './VideoCall';
 import './TutorPage.css';
 import './ReviewAlert.css';
 
@@ -37,7 +36,6 @@ const TutorPage = ({ user, updateUser, notifications, setNotifications, socket }
   const [currentRating, setCurrentRating] = useState(user.rating || 0);
   const [currentReviewCount, setCurrentReviewCount] = useState(user.reviewCount || 0);
   const [ratingUpdateTrigger, setRatingUpdateTrigger] = useState(0); // Force re-render trigger
-  const [activeVideoCall, setActiveVideoCall] = useState(null); // { requestId, learnerId, learnerName }
 
   // Update isOnline state when user prop changes
   useEffect(() => {
@@ -319,41 +317,19 @@ const TutorPage = ({ user, updateUser, notifications, setNotifications, socket }
       
       if (status === 'accepted') {
         console.log('🔄 TutorPage: Refreshing both requests and sessions...');
-        
-        // Store request data BEFORE async operations that update state
-        const request = requests.find(r => r.id === requestId);
-        if (!request) {
-          console.error('❌ Request not found in state!');
-          return;
-        }
-        
-        // request.learner is the learner's ID (number), not an object
-        const videoCallData = {
-          requestId: requestId,
-          learnerId: typeof request.learner === 'object' ? request.learner.id : request.learner,
-          learnerName: typeof request.learner === 'object' ? request.learner.name : 'Learner'
-        };
-        
-        console.log('📋 Video call data prepared:', videoCallData);
-        
+
         // Immediately refresh both requests and sessions
         await Promise.all([
           fetchRequests(), // Remove from pending requests
           fetchSessions()  // Add to sessions
         ]);
         
-        console.log('🎯 TutorPage: Data refreshed, starting video call after delay...');
-        
+        console.log('🎯 TutorPage: Data refreshed, meeting link is ready in sessions tab');
+
         // Switch to sessions tab first
         setActiveTab('sessions');
-        
-        // Wait a moment to ensure learner's VideoCall component is mounted
-        setTimeout(() => {
-          console.log('📹 TutorPage: Initiating video call now with data:', videoCallData);
-          setActiveVideoCall(videoCallData);
-        }, 1000); // 1 second delay to ensure learner is ready
-        
-        console.log('✅ TutorPage: Request accepted! Video call will start in 1 second');
+
+        console.log('✅ TutorPage: Request accepted! Open Jitsi from session actions');
       } else {
         // For rejected requests, just refresh the requests list
         await fetchRequests();
@@ -367,58 +343,10 @@ const TutorPage = ({ user, updateUser, notifications, setNotifications, socket }
     }
   };
 
-  const handleCallEnd = async () => {
-    // Auto-complete session when call ends
-    const callInfo = activeVideoCall;
-    setActiveVideoCall(null);
-    
-    if (callInfo && callInfo.requestId) {
-      try {
-        await axios.put(`/request/${callInfo.requestId}/complete`);
-        console.log('✅ Session auto-completed after video call');
-        await fetchSessions();
-      } catch (error) {
-        console.error('Error auto-completing session:', error);
-      }
-    }
-  };
-
-  const handleStartVideoCall = (session) => {
-    console.log('🎬 Manual video call start requested for session:', session);
-    console.log('📋 Full session object:', JSON.stringify(session, null, 2));
-    
-    // Validate session data
-    if (!session.learner) {
-      console.error('❌ Session missing learner property:', session);
-      alert('Error: Cannot start video call - learner information is missing. Please refresh the page and try again.');
-      return;
-    }
-    
-    console.log('📋 Learner object:', session.learner);
-    console.log('📋 Learner type:', typeof session.learner);
-    console.log('📋 Learner.id:', session.learner.id);
-    
-    // Start video call manually for accepted sessions
-    const learnerId = typeof session.learner === 'object' ? session.learner.id : session.learner;
-    
-    console.log('📋 Extracted learnerId:', learnerId, 'Type:', typeof learnerId);
-    
-    // Check if learnerId is a valid number (including 0)
-    if (learnerId === undefined || learnerId === null || learnerId === '') {
-      console.error('❌ Invalid learner ID extracted:', learnerId);
-      console.error('❌ Session learner object:', session.learner);
-      alert('Error: Cannot start video call - learner ID is missing. Please refresh the page and try again.');
-      return;
-    }
-    
-    const videoCallData = {
-      requestId: session.id,
-      learnerId: learnerId,
-      learnerName: typeof session.learner === 'object' ? session.learner.name : 'Learner'
-    };
-    
-    console.log('📹 Setting video call with data:', videoCallData);
-    setActiveVideoCall(videoCallData);
+  const handleStartJitsiMeeting = (session) => {
+    const fallbackLink = `https://meet.jit.si/peer-${session.id}`;
+    const meetingLink = session.meetingLink || fallbackLink;
+    window.open(meetingLink, '_blank', 'noopener,noreferrer');
   };
 
   if (subjectSetup) {
@@ -462,26 +390,6 @@ const TutorPage = ({ user, updateUser, notifications, setNotifications, socket }
 
   return (
     <div className="tutor-container">
-      {/* Show video call if active */}
-      {activeVideoCall && socket && (
-        <>
-          {console.log('🎥 TutorPage: Rendering VideoCall with props:', {
-            requestId: activeVideoCall.requestId,
-            localUserId: user.id,
-            remoteUserId: activeVideoCall.learnerId,
-            isInitiator: true
-          })}
-          <VideoCall
-            socket={socket}
-            requestId={activeVideoCall.requestId}
-            localUserId={user.id}
-            remoteUserId={activeVideoCall.learnerId}
-            isInitiator={true} // Tutor initiates the call
-            onCallEnd={handleCallEnd}
-          />
-        </>
-      )}
-
       {/* New Review Alert */}
       {newReviewAlert && (
         <div className="new-review-alert">
@@ -699,9 +607,15 @@ const TutorPage = ({ user, updateUser, notifications, setNotifications, socket }
                         
                         {session.status === 'accepted' && (
                           <div className="meeting-info">
+                            <p>
+                              <strong>Meeting:</strong>{' '}
+                              <a href={session.meetingLink || `https://meet.jit.si/peer-${session.id}`} target="_blank" rel="noopener noreferrer">
+                                Open Jitsi Room
+                              </a>
+                            </p>
                             <div className="session-actions" style={{ marginTop: '1rem' }}>
                               <button 
-                                onClick={() => handleStartVideoCall(session)}
+                                onClick={() => handleStartJitsiMeeting(session)}
                                 className="video-call-btn"
                                 style={{
                                   backgroundColor: '#007bff',
@@ -713,7 +627,7 @@ const TutorPage = ({ user, updateUser, notifications, setNotifications, socket }
                                   marginRight: '10px'
                                 }}
                               >
-                                📹 Start Video Call
+                                📹 Start Jitsi Meeting
                               </button>
                               <button 
                                 onClick={() => completeSession(session.id)}

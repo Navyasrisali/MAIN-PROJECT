@@ -4,6 +4,12 @@ const NotificationService = require('../services/notificationService');
 const socketManager = require('../config/socket');
 
 class RequestController {
+  static buildJitsiMeetingLink(request, tutor, learner) {
+    const safeSubject = (request.subject || 'session').toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    const roomName = `peer-${request.id}-${tutor.id}-${learner.id}-${safeSubject}`;
+    return `https://meet.jit.si/${roomName}`;
+  }
+
   // Send request to tutor
   static async createRequest(req, res) {
     try {
@@ -63,33 +69,40 @@ class RequestController {
       db.save(); // Save status change
       
       if (status === 'accepted') {
-        // Set session date for WebRTC call
+        // Set session date and generate Jitsi link
         request.sessionDate = new Date();
-        db.save();
-        
         const tutor = db.users.find(u => u.id === request.tutor);
         const learner = db.users.find(u => u.id === request.learner);
-        
-        console.log(`🎉 Request accepted! WebRTC call will start automatically`);
+
+        if (!tutor || !learner) {
+          return res.status(404).json({ message: 'Tutor or learner not found' });
+        }
+
+        request.meetingLink = request.meetingLink || this.buildJitsiMeetingLink(request, tutor, learner);
+        db.save();
+
+        console.log(`🎉 Request accepted! Jitsi meeting link created`);
         console.log(`📡 Emitting session:accepted to learner ${request.learner}`);
-        
-        // Notify learner via socket to start video call
+
+        // Notify learner via socket with meeting details
         socketManager.emitToUser(request.learner, 'session:accepted', {
           requestId: request.id,
           tutorId: tutor.id,
-          tutorName: tutor.name
+          tutorName: tutor.name,
+          meetingLink: request.meetingLink
         });
-        
+
         console.log(`✅ Socket event emitted with data:`, {
           requestId: request.id,
           tutorId: tutor.id,
-          tutorName: tutor.name
+          tutorName: tutor.name,
+          meetingLink: request.meetingLink
         });
-        
+
         // Notify learner that request was accepted (non-blocking)
         NotificationService.sendNotification(
           request.learner,
-          `Your request has been accepted`,
+          `Your request has been accepted. Join here: ${request.meetingLink}`,
           'acceptance'
         ).catch(err => console.error('Notification error:', err));
       } else {

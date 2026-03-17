@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import ReviewModal from './ReviewModal';
 import NotificationBar from './NotificationBar';
-import VideoCall from './VideoCall';
 import './LearnerPage.css';
 import './CompletedSession.css';
 
@@ -20,7 +19,6 @@ const LearnerPage = ({ user, notifications, setNotifications, socket }) => {
   const [showAllReviewsModal, setShowAllReviewsModal] = useState(false);
   const [selectedTutorReviews, setSelectedTutorReviews] = useState([]);
   const [selectedTutorInfo, setSelectedTutorInfo] = useState(null);
-  const [activeVideoCall, setActiveVideoCall] = useState(null); // { requestId, tutorId, tutorName }
 
   useEffect(() => {
     fetchPendingReviews();
@@ -30,7 +28,7 @@ const LearnerPage = ({ user, notifications, setNotifications, socket }) => {
     setTutors([]);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Listen for session acceptance to start video call
+  // Listen for session acceptance to open Jitsi meeting
   useEffect(() => {
     if (!socket) return;
 
@@ -57,16 +55,10 @@ const LearnerPage = ({ user, notifications, setNotifications, socket }) => {
       } catch (error) {
         console.error('Error refreshing sessions:', error);
       }
-      
-      // Start video call automatically
-      const videoCallData = {
-        requestId: data.requestId,
-        tutorId: data.tutorId,
-        tutorName: data.tutorName
-      };
-      
-      console.log('📹 LearnerPage: Starting video call with data:', videoCallData);
-      setActiveVideoCall(videoCallData);
+
+      if (data.meetingLink) {
+        window.open(data.meetingLink, '_blank', 'noopener,noreferrer');
+      }
     };
 
     socket.on('session:accepted', handleSessionAccepted);
@@ -185,97 +177,14 @@ const LearnerPage = ({ user, notifications, setNotifications, socket }) => {
     }
   };
 
-  const handleCallEnd = async () => {
-    // Close video call
-    setActiveVideoCall(null);
-    
-    // Note: Session completion is handled by tutor side
-    // Just refresh to see updated status
-    await fetchSessions();
-  };
-
-  const handleStartVideoCall = (session) => {
-    console.log('🎬 Manual video call start requested for session:', session);
-    
-    // Show alert with session keys to help debug
-    alert(`DEBUG: Session keys: ${Object.keys(session).join(', ')}\nSession.tutor: ${JSON.stringify(session.tutor)}`);
-    
-    try {
-      console.log('📋 Full session object:', JSON.stringify(session, null, 2));
-    } catch (e) {
-      console.log('📋 Full session object (circular):', session);
-    }
-    
-    // Validate session data
-    if (!session) {
-      alert('Error: Session is null or undefined');
-      return;
-    }
-    
-    console.log('📋 Session.tutor:', session.tutor);
-    console.log('📋 Session.tutor type:', typeof session.tutor);
-    
-    // Try multiple ways to get the tutor ID
-    let tutorId;
-    
-    if (session.tutor) {
-      if (typeof session.tutor === 'object') {
-        tutorId = session.tutor.id;
-        console.log('📋 Extracted from session.tutor.id:', tutorId);
-      } else {
-        tutorId = session.tutor;
-        console.log('📋 Extracted from session.tutor directly:', tutorId);
-      }
-    }
-    
-    // Fallback: check if there's a tutorId field directly on session
-    if (!tutorId && tutorId !== 0) {
-      console.log('⚠️ tutorId not found in session.tutor, checking session.tutorId...');
-      tutorId = session.tutorId;
-    }
-    
-    console.log('📋 Final tutorId:', tutorId, 'Type:', typeof tutorId);
-    
-    // Validate tutorId (allow 0 as valid ID)
-    if (tutorId === undefined || tutorId === null || tutorId === '') {
-      console.error('❌ Invalid tutor ID:', tutorId);
-      console.error('❌ Full session for debugging:', session);
-      alert('Error: Cannot start video call - tutor ID is missing. Check console for details.');
-      return;
-    }
-    
-    const videoCallData = {
-      requestId: session.id,
-      tutorId: Number(tutorId), // Ensure it's a number
-      tutorName: (session.tutor && typeof session.tutor === 'object') ? session.tutor.name : 'Tutor'
-    };
-    
-    console.log('📹 Setting video call with data:', videoCallData);
-    setActiveVideoCall(videoCallData);
+  const handleJoinMeeting = (session) => {
+    const fallbackLink = `https://meet.jit.si/peer-${session.id}`;
+    const meetingLink = session.meetingLink || fallbackLink;
+    window.open(meetingLink, '_blank', 'noopener,noreferrer');
   };
 
   return (
     <div className="learner-container">;
-      {/* Show video call if active */}
-      {activeVideoCall && socket && (
-        <>
-          {console.log('🎥 LearnerPage: Rendering VideoCall with props:', {
-            requestId: activeVideoCall.requestId,
-            localUserId: user.id,
-            remoteUserId: activeVideoCall.tutorId,
-            isInitiator: false
-          })}
-          <VideoCall
-            socket={socket}
-            requestId={activeVideoCall.requestId}
-            localUserId={user.id}
-            remoteUserId={activeVideoCall.tutorId}
-            isInitiator={false} // Learner receives the call
-            onCallEnd={handleCallEnd}
-          />
-        </>
-      )}
-
       <div className="learner-header">
         <h2>Find Your Perfect Tutor</h2>
         <NotificationBar 
@@ -497,10 +406,10 @@ const LearnerPage = ({ user, notifications, setNotifications, socket }) => {
                           <p className="accepted-text">✅ <strong>Accepted by tutor</strong></p>
                         </div>
                         <button
-                          onClick={() => handleStartVideoCall(session)}
+                          onClick={() => handleJoinMeeting(session)}
                           className="video-call-btn"
                         >
-                          📹 Join Video Call
+                          📹 Join Jitsi Meeting
                         </button>
                       </div>
                     ) : session.status === 'pending' ? (
