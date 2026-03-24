@@ -36,6 +36,20 @@ class AdminController {
       db.users
         .filter(user => user.role === 'tutor')
         .forEach((user) => {
+          if (user.verificationStatus === 'pending' && Array.isArray(user.certificateUrls) && user.certificateUrls.length > 0) {
+            pendingRows.push({
+              tutorId: user.id,
+              name: user.name,
+              email: user.email,
+              subject: 'General',
+              subjectKey: null,
+              certificateUrl: user.certificateUrls[0],
+              certificateUrls: user.certificateUrls,
+              uploadedAt: user.createdAt,
+              createdAt: user.createdAt
+            });
+          }
+
           const verificationMap = user.subjectVerifications || {};
           Object.entries(verificationMap).forEach(([subjectKey, verification]) => {
             if (verification.status === 'pending' && verification.certificateUrl) {
@@ -46,6 +60,7 @@ class AdminController {
                 subject: verification.subject,
                 subjectKey,
                 certificateUrl: verification.certificateUrl,
+                certificateUrls: [verification.certificateUrl],
                 uploadedAt: verification.uploadedAt || user.createdAt,
                 createdAt: user.createdAt
               });
@@ -97,37 +112,43 @@ class AdminController {
         return res.status(404).json({ message: 'Tutor not found' });
       }
 
-      if (!subject || !String(subject).trim()) {
-        return res.status(400).json({ message: 'Subject is required' });
+      let approvedSubject = null;
+      if (subject && String(subject).trim()) {
+        const subjectKey = normalizeSubjectKey(subject);
+        const verification = tutor.subjectVerifications && tutor.subjectVerifications[subjectKey];
+        if (!verification) {
+          return res.status(404).json({ message: 'Subject certificate not found for tutor' });
+        }
+
+        verification.status = 'approved';
+        verification.rejectionReason = null;
+        verification.approvedAt = new Date().toISOString();
+
+        const summary = getVerificationSummary(tutor);
+        tutor.isVerified = summary.isVerified;
+        tutor.verificationStatus = summary.verificationStatus;
+        approvedSubject = verification.subject;
+      } else {
+        tutor.isVerified = true;
+        tutor.verificationStatus = 'approved';
+        tutor.certificateRejectionReason = null;
       }
-
-      const subjectKey = normalizeSubjectKey(subject);
-      const verification = tutor.subjectVerifications && tutor.subjectVerifications[subjectKey];
-      if (!verification) {
-        return res.status(404).json({ message: 'Subject certificate not found for tutor' });
-      }
-
-      verification.status = 'approved';
-      verification.rejectionReason = null;
-      verification.approvedAt = new Date().toISOString();
-
-      const summary = getVerificationSummary(tutor);
-      tutor.isVerified = summary.isVerified;
-      tutor.verificationStatus = summary.verificationStatus;
       db.save();
 
       // Send notification to tutor
       await NotificationService.sendNotification(
         tutorId,
-        `🎉 Your certificate for ${verification.subject} has been verified.`,
+        approvedSubject
+          ? `🎉 Your certificate for ${approvedSubject} has been verified.`
+          : '🎉 Your certificates have been verified.',
         'verification'
       );
 
       // Emit real-time socket event to update tutor immediately
       socketManager.emitToUser(tutorId, 'certificate:verified', {
-        isVerified: true,
-        verificationStatus: 'approved',
-        subject: verification.subject,
+        isVerified: tutor.isVerified,
+        verificationStatus: tutor.verificationStatus,
+        subject: approvedSubject,
         tutorId: tutor.id
       });
 
@@ -165,37 +186,43 @@ class AdminController {
         return res.status(404).json({ message: 'Tutor not found' });
       }
 
-      if (!subject || !String(subject).trim()) {
-        return res.status(400).json({ message: 'Subject is required' });
+      let rejectedSubject = null;
+      if (subject && String(subject).trim()) {
+        const subjectKey = normalizeSubjectKey(subject);
+        const verification = tutor.subjectVerifications && tutor.subjectVerifications[subjectKey];
+        if (!verification) {
+          return res.status(404).json({ message: 'Subject certificate not found for tutor' });
+        }
+
+        verification.status = 'rejected';
+        verification.rejectionReason = reason;
+        verification.rejectedAt = new Date().toISOString();
+
+        const summary = getVerificationSummary(tutor);
+        tutor.isVerified = summary.isVerified;
+        tutor.verificationStatus = summary.verificationStatus;
+        rejectedSubject = verification.subject;
+      } else {
+        tutor.isVerified = false;
+        tutor.verificationStatus = 'rejected';
+        tutor.certificateRejectionReason = reason;
       }
-
-      const subjectKey = normalizeSubjectKey(subject);
-      const verification = tutor.subjectVerifications && tutor.subjectVerifications[subjectKey];
-      if (!verification) {
-        return res.status(404).json({ message: 'Subject certificate not found for tutor' });
-      }
-
-      verification.status = 'rejected';
-      verification.rejectionReason = reason;
-      verification.rejectedAt = new Date().toISOString();
-
-      const summary = getVerificationSummary(tutor);
-      tutor.isVerified = summary.isVerified;
-      tutor.verificationStatus = summary.verificationStatus;
       db.save();
 
       // Send notification to tutor
       await NotificationService.sendNotification(
         tutorId,
-        `❌ Your certificate for ${verification.subject} was rejected. Reason: ${reason}. Please upload a valid certificate.`,
+        rejectedSubject
+          ? `❌ Your certificate for ${rejectedSubject} was rejected. Reason: ${reason}. Please upload a valid certificate.`
+          : `❌ Your certificates were rejected. Reason: ${reason}. Please upload valid certificates.`,
         'verification'
       );
 
       // Emit real-time socket event to update tutor immediately
       socketManager.emitToUser(tutorId, 'certificate:rejected', {
-        isVerified: false,
-        verificationStatus: 'rejected',
-        subject: verification.subject,
+        isVerified: tutor.isVerified,
+        verificationStatus: tutor.verificationStatus,
+        subject: rejectedSubject,
         rejectionReason: reason,
         tutorId: tutor.id
       });

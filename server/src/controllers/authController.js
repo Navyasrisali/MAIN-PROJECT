@@ -44,6 +44,7 @@ const mapUserResponse = (user) => {
     isVerified: summary.isVerified,
     verificationStatus: summary.verificationStatus,
     certificateUrl: user.certificateUrl || null,
+    certificateUrls: user.certificateUrls || [],
     certificateRejectionReason: user.certificateRejectionReason || null,
     subjectVerifications: user.subjectVerifications || {}
   };
@@ -253,7 +254,6 @@ class AuthController {
   // Upload Certificate
   static async uploadCertificate(req, res) {
     try {
-      const { subject } = req.body;
       const user = db.users.find(u => u.id === req.user.id);
       if (!user) {
         return res.status(404).json({ message: 'User not found' });
@@ -267,37 +267,21 @@ class AuthController {
         }
       }
 
-      if (!req.file) {
-        return res.status(400).json({ message: 'Please upload a certificate file' });
+      const uploadedFiles = [
+        ...(req.files?.certificates || []),
+        ...(req.files?.certificate || [])
+      ];
+
+      if (!uploadedFiles.length) {
+        return res.status(400).json({ message: 'Please upload at least one certificate file' });
       }
 
-      if (!subject || !String(subject).trim()) {
-        return res.status(400).json({ message: 'Subject is required for certificate upload' });
-      }
-
-      const subjectKey = normalizeSubjectKey(subject);
-      const matchedSubject = (user.subjects || []).find(s => normalizeSubjectKey(s) === subjectKey);
-      if (!matchedSubject) {
-        return res.status(400).json({ message: 'Selected subject is not in tutor profile' });
-      }
-
-      if (!user.subjectVerifications || typeof user.subjectVerifications !== 'object') {
-        user.subjectVerifications = {};
-      }
-
-      // Save certificate URL (relative path)
-      const certificateUrl = `/uploads/certificates/${req.file.filename}`;
-      user.subjectVerifications[subjectKey] = {
-        subject: matchedSubject,
-        status: 'pending',
-        certificateUrl,
-        rejectionReason: null,
-        uploadedAt: new Date().toISOString()
-      };
-
-      const summary = getVerificationSummary(user);
-      user.isVerified = summary.isVerified;
-      user.verificationStatus = summary.verificationStatus;
+      const uploadedUrls = uploadedFiles.map(file => `/uploads/certificates/${file.filename}`);
+      user.certificateUrls = uploadedUrls;
+      user.certificateUrl = uploadedUrls[0] || null;
+      user.certificateRejectionReason = null;
+      user.isVerified = false;
+      user.verificationStatus = 'pending';
       db.save();
 
       // Notify all admins
@@ -305,17 +289,17 @@ class AuthController {
       admins.forEach(admin => {
         NotificationService.sendNotification(
           admin.id,
-          `${user.name} uploaded certificate for ${matchedSubject} verification`,
+          `${user.name} uploaded ${uploadedUrls.length} certificate(s) for verification`,
           'certificate_uploaded'
         );
       });
 
       res.json({ 
-        message: `Certificate uploaded for ${matchedSubject}. Awaiting admin verification.`,
-        subject: matchedSubject,
-        certificateUrl,
+        message: `Uploaded ${uploadedUrls.length} certificate(s). Awaiting admin verification.`,
+        certificateUrls: uploadedUrls,
+        certificateUrl: uploadedUrls[0] || null,
         verificationStatus: user.verificationStatus,
-        subjectVerifications: user.subjectVerifications
+        isVerified: user.isVerified
       });
     } catch (error) {
       console.error('Error uploading certificate:', error);

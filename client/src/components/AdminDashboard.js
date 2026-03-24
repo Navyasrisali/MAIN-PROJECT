@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import './AdminDashboard.css';
 
-const FALLBACK_BACKEND_URL = 'https://mern-learning-backend.onrender.com';
+const FALLBACK_BACKEND_URL = 'http://localhost:5000';
 const API_BASE_URL =
   process.env.REACT_APP_API_URL &&
   !process.env.REACT_APP_API_URL.includes('your-render-backend-url.onrender.com')
@@ -105,7 +105,7 @@ const AdminDashboard = () => {
             <tr>
               <th>Tutor Name</th>
               <th>Email</th>
-              <th>Subject</th>
+              <th>Type</th>
               <th>Certificate</th>
               <th>Actions</th>
             </tr>
@@ -117,14 +117,27 @@ const AdminDashboard = () => {
               <tr key={`${tutorId}-${item.subjectKey || item.subject || 'subject'}`}>
                 <td>{item.name}</td>
                 <td>{item.email}</td>
-                <td>{item.subject}</td>
+                <td>{item.subject || 'General'}</td>
                 <td>
-                  <button 
-                    className="btn-view"
-                    onClick={() => viewCertificate(`${API_BASE_URL}${item.certificateUrl}`)}
-                  >
-                    View Certificate
-                  </button>
+                  {Array.isArray(item.certificateUrls) && item.certificateUrls.length > 0 ? (
+                    item.certificateUrls.map((url, index) => (
+                      <button
+                        key={`${url}-${index}`}
+                        className="btn-view"
+                        onClick={() => viewCertificate(`${API_BASE_URL}${url}`)}
+                        style={{ marginRight: '6px', marginBottom: '6px' }}
+                      >
+                        View {index + 1}
+                      </button>
+                    ))
+                  ) : (
+                    <button
+                      className="btn-view"
+                      onClick={() => viewCertificate(`${API_BASE_URL}${item.certificateUrl}`)}
+                    >
+                      View Certificate
+                    </button>
+                  )}
                 </td>
                 <td>
                   <button 

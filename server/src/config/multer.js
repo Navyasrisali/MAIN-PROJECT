@@ -20,16 +20,16 @@ const storage = multer.diskStorage({
   }
 });
 
-// File filter to accept only images and PDFs
+// File filter to accept only PDFs for certificate uploads
 const fileFilter = (req, file, cb) => {
-  const allowedTypes = /jpeg|jpg|png|pdf/;
+  const allowedTypes = /pdf/;
   const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
   const mimetype = allowedTypes.test(file.mimetype);
 
   if (extname && mimetype) {
     cb(null, true);
   } else {
-    cb(new Error('Only images (JPEG, PNG) and PDF files are allowed!'), false);
+    cb(new Error('Only PDF files are allowed!'), false);
   }
 };
 
