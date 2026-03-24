@@ -86,8 +86,11 @@ class AdminController {
   // Approve tutor certificate
   static async approveCertificate(req, res) {
     try {
-      const tutorId = parseInt(req.params.tutorId);
+      const tutorId = parseInt(req.params.tutorId || req.body.tutorId);
       const { subject } = req.body;
+      if (Number.isNaN(tutorId)) {
+        return res.status(400).json({ message: 'Invalid tutor id' });
+      }
       const tutor = db.users.find(u => u.id === tutorId && u.role === 'tutor');
       
       if (!tutor) {
@@ -146,8 +149,11 @@ class AdminController {
   // Reject tutor certificate
   static async rejectCertificate(req, res) {
     try {
-      const tutorId = parseInt(req.params.tutorId);
+      const tutorId = parseInt(req.params.tutorId || req.body.tutorId);
       const { reason, subject } = req.body;
+      if (Number.isNaN(tutorId)) {
+        return res.status(400).json({ message: 'Invalid tutor id' });
+      }
       
       if (!reason) {
         return res.status(400).json({ message: 'Rejection reason is required' });

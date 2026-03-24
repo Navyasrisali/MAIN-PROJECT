@@ -118,11 +118,16 @@ const LearnerPage = ({ user, notifications, setNotifications, socket }) => {
     }
   };
 
-  const sendRequest = async (tutorId) => {
+  const sendRequest = async (tutor) => {
+    const resolvedSubject =
+      (Array.isArray(tutor.matchedSubjects) && tutor.matchedSubjects.length > 0
+        ? tutor.matchedSubjects[0]
+        : searchSubject);
+
     try {
       await axios.post('/request', {
-        tutorId,
-        subject: searchSubject
+        tutorId: tutor.id,
+        subject: resolvedSubject
       });
       alert('✅ Request sent successfully!');
       setTutors([]); // Clear results after sending request
@@ -322,7 +327,7 @@ const LearnerPage = ({ user, notifications, setNotifications, socket }) => {
                     </div>
                     <div className="tutor-actions">
                       <button
-                        onClick={() => sendRequest(tutor.id)}
+                        onClick={() => sendRequest(tutor)}
                         className="request-btn"
                       >
                         Send Request

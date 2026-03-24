@@ -11,6 +11,21 @@ const isSubjectApprovedForTutor = (tutor, subject) => {
   return Boolean(map[key] && map[key].status === 'approved');
 };
 
+const getApprovedMatchingSubjects = (tutor, querySubject) => {
+  const normalizedQuery = normalizeSubjectKey(querySubject);
+  const verificationMap = tutor.subjectVerifications || {};
+
+  return (tutor.subjects || []).filter((subject) => {
+    const normalizedSubject = normalizeSubjectKey(subject);
+    const matches = normalizedSubject.includes(normalizedQuery);
+    const isApproved = Boolean(
+      verificationMap[normalizedSubject] &&
+      verificationMap[normalizedSubject].status === 'approved'
+    );
+    return matches && isApproved;
+  });
+};
+
 class RequestController {
   static buildJitsiMeetingLink(request, tutor, learner) {
     const safeSubject = (request.subject || 'session').toLowerCase().replace(/[^a-z0-9]+/g, '-');
@@ -32,11 +47,15 @@ class RequestController {
         return res.status(404).json({ message: 'Tutor not found' });
       }
 
-      if (!isSubjectApprovedForTutor(tutor, subject)) {
+      const approvedMatches = getApprovedMatchingSubjects(tutor, subject);
+      if (approvedMatches.length === 0) {
         return res.status(403).json({
           message: `Tutor is not verified to teach ${subject} yet`
         });
       }
+
+      // Store canonical subject name from tutor profile to avoid case/alias mismatch later.
+      const canonicalSubject = approvedMatches[0];
       
       // Check if learner has pending reviews
       const pendingReviews = db.requests.filter(r => 
@@ -55,7 +74,7 @@ class RequestController {
         id: db.getNextId(),
         learner: req.user.id,
         tutor: parseInt(tutorId),
-        subject,
+        subject: canonicalSubject,
         status: 'pending',
         createdAt: new Date()
       };
@@ -67,7 +86,7 @@ class RequestController {
       // Send notification to tutor
       await NotificationService.sendNotification(
         parseInt(tutorId),
-        `New tutoring request for ${subject}`,
+        `New tutoring request for ${canonicalSubject}`,
         'request'
       );
       

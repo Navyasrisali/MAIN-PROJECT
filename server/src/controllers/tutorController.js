@@ -91,11 +91,20 @@ class TutorController {
         
         return isRightRole && isOnline && hasApprovedCertificateForMatch && isNotSelf;
       }).map(user => {
+        const verificationMap = user.subjectVerifications || {};
+        const matchedSubjects = (user.subjects || []).filter((s) => {
+          const normalized = normalizeSubjectKey(s);
+          const matches = normalized.includes(subject.toLowerCase());
+          const approved = verificationMap[normalized] && verificationMap[normalized].status === 'approved';
+          return matches && approved;
+        });
+
         return {
           id: user.id,
           name: user.name,
           email: user.email,
           subjects: user.subjects,
+          matchedSubjects,
           rating: user.rating || 0,
           reviewCount: user.reviewCount || 0,
           isOnline: user.isOnline
