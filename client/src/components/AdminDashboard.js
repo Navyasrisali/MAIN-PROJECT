@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import './AdminDashboard.css';
 
-const FALLBACK_BACKEND_URL = 'http://localhost:5000';
+const FALLBACK_BACKEND_URL = 'https://mern-learning-backend.onrender.com';
 const API_BASE_URL =
   process.env.REACT_APP_API_URL &&
   !process.env.REACT_APP_API_URL.includes('your-render-backend-url.onrender.com')
@@ -16,7 +16,7 @@ const AdminDashboard = () => {
   const [loading, setLoading] = useState(false);
   const [selectedCertificate, setSelectedCertificate] = useState(null);
   const [rejectionReason, setRejectionReason] = useState('');
-  const [selectedVerificationForRejection, setSelectedVerificationForRejection] = useState(null);
+  const [selectedTutorForRejection, setSelectedTutorForRejection] = useState(null);
 
   useEffect(() => {
     fetchData();
@@ -46,12 +46,12 @@ const AdminDashboard = () => {
     }
   };
 
-  const handleApprove = async (tutorId, subject) => {
+  const handleApprove = async (tutorId) => {
     if (!window.confirm('Are you sure you want to approve this tutor?')) return;
     
     try {
       const token = localStorage.getItem('token');
-      await axios.put(`${API_BASE_URL}/api/admin/tutors/${tutorId}/approve`, { subject }, {
+      await axios.put(`${API_BASE_URL}/api/admin/tutors/${tutorId}/approve`, {}, {
         headers: { Authorization: `Bearer ${token}` }
       });
       alert('Tutor approved successfully!');
@@ -67,21 +67,15 @@ const AdminDashboard = () => {
       alert('Please provide a reason for rejection');
       return;
     }
-
-    const tutorId = selectedVerificationForRejection?.tutorId ?? selectedVerificationForRejection?.id;
-    if (!tutorId) {
-      alert('Unable to identify tutor for rejection. Please refresh and try again.');
-      return;
-    }
     
     try {
       const token = localStorage.getItem('token');
-      await axios.put(`${API_BASE_URL}/api/admin/tutors/${tutorId}/reject`, 
-        { reason: rejectionReason, subject: selectedVerificationForRejection.subject },
+      await axios.put(`${API_BASE_URL}/api/admin/tutors/${selectedTutorForRejection}/reject`, 
+        { reason: rejectionReason },
         { headers: { Authorization: `Bearer ${token}` } }
       );
       alert('Tutor rejected successfully!');
-      setSelectedVerificationForRejection(null);
+      setSelectedTutorForRejection(null);
       setRejectionReason('');
       fetchData();
     } catch (error) {
@@ -105,56 +99,41 @@ const AdminDashboard = () => {
             <tr>
               <th>Tutor Name</th>
               <th>Email</th>
-              <th>Type</th>
+              <th>Subjects</th>
               <th>Certificate</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
-            {pendingVerifications.map(item => {
-              const tutorId = item.tutorId ?? item.id;
-              return (
-              <tr key={`${tutorId}-${item.subjectKey || item.subject || 'subject'}`}>
-                <td>{item.name}</td>
-                <td>{item.email}</td>
-                <td>{item.subject || 'General'}</td>
+            {pendingVerifications.map(tutor => (
+              <tr key={tutor.id}>
+                <td>{tutor.name}</td>
+                <td>{tutor.email}</td>
+                <td>{tutor.subjects?.join(', ') || 'None'}</td>
                 <td>
-                  {Array.isArray(item.certificateUrls) && item.certificateUrls.length > 0 ? (
-                    item.certificateUrls.map((url, index) => (
-                      <button
-                        key={`${url}-${index}`}
-                        className="btn-view"
-                        onClick={() => viewCertificate(`${API_BASE_URL}${url}`)}
-                        style={{ marginRight: '6px', marginBottom: '6px' }}
-                      >
-                        View {index + 1}
-                      </button>
-                    ))
-                  ) : (
-                    <button
-                      className="btn-view"
-                      onClick={() => viewCertificate(`${API_BASE_URL}${item.certificateUrl}`)}
-                    >
-                      View Certificate
-                    </button>
-                  )}
+                  <button 
+                    className="btn-view"
+                    onClick={() => viewCertificate(`${API_BASE_URL}${tutor.certificateUrl}`)}
+                  >
+                    View Certificate
+                  </button>
                 </td>
                 <td>
                   <button 
                     className="btn-approve"
-                    onClick={() => handleApprove(tutorId, item.subject)}
+                    onClick={() => handleApprove(tutor.id)}
                   >
                     Approve
                   </button>
                   <button 
                     className="btn-reject"
-                    onClick={() => setSelectedVerificationForRejection({ ...item, tutorId })}
+                    onClick={() => setSelectedTutorForRejection(tutor.id)}
                   >
                     Reject
                   </button>
                 </td>
               </tr>
-            )})}
+            ))}
           </tbody>
         </table>
       )}
@@ -269,12 +248,11 @@ const AdminDashboard = () => {
       )}
 
       {/* Rejection Modal */}
-      {selectedVerificationForRejection && (
-        <div className="modal-overlay" onClick={() => setSelectedVerificationForRejection(null)}>
+      {selectedTutorForRejection && (
+        <div className="modal-overlay" onClick={() => setSelectedTutorForRejection(null)}>
           <div className="modal-content rejection-modal" onClick={e => e.stopPropagation()}>
-            <button className="modal-close" onClick={() => setSelectedVerificationForRejection(null)}>×</button>
+            <button className="modal-close" onClick={() => setSelectedTutorForRejection(null)}>×</button>
             <h3>Reject Certificate</h3>
-            <p><strong>Subject:</strong> {selectedVerificationForRejection.subject}</p>
             <p>Please provide a reason for rejection:</p>
             <textarea
               value={rejectionReason}
@@ -284,7 +262,7 @@ const AdminDashboard = () => {
               className="rejection-textarea"
             />
             <div className="modal-actions">
-              <button className="btn-cancel" onClick={() => setSelectedVerificationForRejection(null)}>
+              <button className="btn-cancel" onClick={() => setSelectedTutorForRejection(null)}>
                 Cancel
               </button>
               <button className="btn-submit" onClick={handleReject}>

@@ -2,82 +2,87 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import './CertificateUpload.css';
 
-const FALLBACK_BACKEND_URL = 'http://localhost:5000';
+const FALLBACK_BACKEND_URL = 'https://mern-learning-backend.onrender.com';
 const API_BASE_URL =
   process.env.REACT_APP_API_URL &&
   !process.env.REACT_APP_API_URL.includes('your-render-backend-url.onrender.com')
     ? process.env.REACT_APP_API_URL
     : FALLBACK_BACKEND_URL;
 
-const formatStatus = (status) => {
-  if (status === 'approved') return '✅ Verified';
-  if (status === 'pending') return '⏳ Pending Verification';
-  if (status === 'rejected') return '❌ Rejected';
-  return '📝 Not Submitted';
-};
-
 const CertificateUpload = ({ user, updateUser }) => {
-  const [selectedFiles, setSelectedFiles] = useState([]);
+  const [selectedFile, setSelectedFile] = useState(null);
   const [uploading, setUploading] = useState(false);
-  const [verificationStatus, setVerificationStatus] = useState(user.verificationStatus || 'not_submitted');
-  const [certificateUrls, setCertificateUrls] = useState(user.certificateUrls || []);
+  const [verificationStatus, setVerificationStatus] = useState(user.verificationStatus || 'pending');
+  const [certificateUrl, setCertificateUrl] = useState(user.certificateUrl || null);
+  const [rejectionReason, setRejectionReason] = useState(user.certificateRejectionReason || null);
 
   useEffect(() => {
-    setVerificationStatus(user.verificationStatus || 'not_submitted');
-    setCertificateUrls(user.certificateUrls || []);
+    setVerificationStatus(user.verificationStatus || 'pending');
+    setCertificateUrl(user.certificateUrl || null);
+    setRejectionReason(user.certificateRejectionReason || null);
   }, [user]);
 
   const handleFileSelect = (e) => {
-    const files = Array.from(e.target.files || []);
-    if (!files.length) return;
-
-    const allowedTypes = ['application/pdf'];
-    for (const file of files) {
+    const file = e.target.files[0];
+    if (file) {
+      // Validate file type
+      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
       if (!allowedTypes.includes(file.type)) {
-        alert('Please select only PDF files');
+        alert('Please select a valid file (JPEG, PNG, or PDF)');
         return;
       }
 
+      // Validate file size (5MB max)
       if (file.size > 5 * 1024 * 1024) {
-        alert(`File size must be less than 5MB: ${file.name}`);
+        alert('File size must be less than 5MB');
         return;
       }
-    }
 
-    setSelectedFiles(files);
+      setSelectedFile(file);
+    }
   };
 
   const handleUpload = async () => {
-    if (!selectedFiles.length) {
-      alert('Please select one or more PDF certificates first');
+    if (!selectedFile) {
+      alert('Please select a file first');
       return;
     }
 
     setUploading(true);
     try {
-      const formData = new FormData();
-      selectedFiles.forEach((file) => {
-        formData.append('certificates', file);
+      // Keep backend role in sync before certificate upload.
+      const roleSyncResponse = await axios.put(`${API_BASE_URL}/api/user/role`, {
+        role: 'tutor',
+        subjects: user.subjects || []
+      }, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
       });
+
+      const formData = new FormData();
+      formData.append('certificate', selectedFile);
 
       const token = localStorage.getItem('token');
       const response = await axios.post(`${API_BASE_URL}/api/upload-certificate`, formData, {
         headers: {
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data'
         }
       });
 
       alert(response.data.message);
-      setSelectedFiles([]);
-      setVerificationStatus(response.data.verificationStatus || 'pending');
-      setCertificateUrls(response.data.certificateUrls || []);
-
+      setVerificationStatus(response.data.verificationStatus);
+      setCertificateUrl(response.data.certificateUrl);
+      setSelectedFile(null);
+      
+      // Update user state
       if (updateUser) {
         updateUser({
           ...user,
+          role: roleSyncResponse?.data?.user?.role || 'tutor',
           verificationStatus: response.data.verificationStatus,
-          isVerified: response.data.isVerified,
-          certificateUrls: response.data.certificateUrls || user.certificateUrls || []
+          certificateUrl: response.data.certificateUrl
         });
       }
     } catch (error) {
@@ -88,71 +93,126 @@ const CertificateUpload = ({ user, updateUser }) => {
     }
   };
 
+  const getStatusBadge = () => {
+    switch (verificationStatus) {
+      case 'pending':
+        return <span className="status-badge pending">⏳ Pending Verification</span>;
+      case 'approved':
+        return <span className="status-badge approved">✅ Verified</span>;
+      case 'rejected':
+        return <span className="status-badge rejected">❌ Rejected</span>;
+      default:
+        return <span className="status-badge pending">⏳ Not Submitted</span>;
+    }
+  };
+
   return (
     <div className="certificate-upload-section">
       <div className="certificate-header">
         <h3>Certificate Verification</h3>
-        <span className={`status-badge ${verificationStatus}`}>
-          {formatStatus(verificationStatus)}
-        </span>
+        {getStatusBadge()}
       </div>
 
-      <div className="verification-info">
-        <p>
-          <strong>⚠️ Important:</strong> Select multiple PDF certificates and upload them together.
-        </p>
-      </div>
-
-      {certificateUrls.length > 0 && (
-        <div style={{ marginBottom: '12px' }}>
-          <strong>Uploaded Certificates:</strong>
-          <ul style={{ marginTop: '8px' }}>
-            {certificateUrls.map((url, index) => (
-              <li key={`${url}-${index}`}>
-                <a href={`${API_BASE_URL}${url}`} target="_blank" rel="noopener noreferrer" className="view-certificate-link">
-                  View Certificate {index + 1}
-                </a>
-              </li>
-            ))}
-          </ul>
+      {!user.isVerified && (
+        <div className="verification-info">
+          <p>
+            <strong>⚠️ Important:</strong> You must upload and get your certificate verified before you can start teaching. 
+            Only verified tutors will appear in learner searches.
+          </p>
         </div>
       )}
 
-      <div className="upload-form" style={{ marginBottom: '16px' }}>
-        <div className="file-input-wrapper">
-          <label htmlFor="certificate-files" className="file-label">
-            {selectedFiles.length ? (
-              <>
-                <span className="file-icon">📄</span>
-                <span className="file-name">{selectedFiles.length} PDF file(s) selected</span>
-              </>
-            ) : (
-              <>
-                <span className="upload-icon">📤</span>
-                <span>Choose certificate PDFs</span>
-                <span className="file-hint">(Multiple PDF files allowed, max 5MB each)</span>
-              </>
-            )}
-          </label>
-          <input
-            type="file"
-            id="certificate-files"
-            accept=".pdf,application/pdf"
-            multiple
-            onChange={handleFileSelect}
-            className="file-input"
-          />
+      {verificationStatus === 'rejected' && rejectionReason && (
+        <div className="rejection-notice">
+          <h4>Rejection Reason:</h4>
+          <p>{rejectionReason}</p>
+          <p className="reupload-text">Please upload a valid certificate to continue.</p>
         </div>
+      )}
 
-        <button
-          onClick={handleUpload}
-          disabled={uploading || !selectedFiles.length}
-          className="upload-btn"
-          style={{ marginTop: '8px', opacity: selectedFiles.length ? 1 : 0.6 }}
-        >
-          {uploading ? 'Uploading...' : 'Upload Certificates'}
-        </button>
-      </div>
+      {verificationStatus === 'pending' && certificateUrl && (
+        <div className="pending-notice">
+          <p>✓ Certificate uploaded successfully! Awaiting admin verification.</p>
+          <a 
+            href={`${API_BASE_URL}${certificateUrl}`} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="view-certificate-link"
+          >
+            View Uploaded Certificate
+          </a>
+        </div>
+      )}
+
+      {verificationStatus === 'approved' && (
+        <div className="approved-notice">
+          <p>🎉 Congratulations! Your certificate has been verified. You can now start teaching!</p>
+          {certificateUrl && (
+            <a 
+              href={`${API_BASE_URL}${certificateUrl}`} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="view-certificate-link"
+            >
+              View Your Certificate
+            </a>
+          )}
+        </div>
+      )}
+
+      {(verificationStatus !== 'approved' && verificationStatus !== 'pending') && (
+        <div className="upload-form">
+          <div className="file-input-wrapper">
+            <label htmlFor="certificate-file" className="file-label">
+              {selectedFile ? (
+                <>
+                  <span className="file-icon">📄</span>
+                  <span className="file-name">{selectedFile.name}</span>
+                  <span className="file-size">({(selectedFile.size / 1024).toFixed(2)} KB)</span>
+                </>
+              ) : (
+                <>
+                  <span className="upload-icon">📤</span>
+                  <span>Choose Certificate File</span>
+                  <span className="file-hint">(PDF, JPEG, or PNG - Max 5MB)</span>
+                </>
+              )}
+            </label>
+            <input
+              type="file"
+              id="certificate-file"
+              accept=".pdf,.jpg,.jpeg,.png"
+              onChange={handleFileSelect}
+              className="file-input"
+            />
+          </div>
+
+          {selectedFile && (
+            <button 
+              onClick={handleUpload} 
+              disabled={uploading}
+              className="upload-btn"
+            >
+              {uploading ? 'Uploading...' : 'Upload Certificate'}
+            </button>
+          )}
+        </div>
+      )}
+
+      {verificationStatus === 'pending' && (
+        <div className="reupload-section">
+          <p>Need to upload a different certificate?</p>
+          <button 
+            onClick={() => {
+              setVerificationStatus('rejected');
+              setCertificateUrl(null);
+            }}
+            className="reupload-btn"
+          >
+            Upload New Certificate
+          </button>
+        </div>
+      )}
     </div>
   );
 };
