@@ -72,15 +72,18 @@ const CertificateUpload = ({ user, updateUser }) => {
       alert(response.data.message);
       setSelectedFiles((prev) => ({ ...prev, [subject]: null }));
       setSubjectVerifications(response.data.subjectVerifications || {});
+
+      // Re-sync from server to avoid any stale local state after upload.
+      const profileResponse = await axios.get(`${API_BASE_URL}/api/user/me`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const freshUser = profileResponse?.data?.user;
       
       // Update user state
-      if (updateUser) {
-        updateUser({
-          ...user,
-          role: 'tutor',
-          verificationStatus: response.data.verificationStatus,
-          subjectVerifications: response.data.subjectVerifications || {}
-        });
+      if (updateUser && freshUser) {
+        updateUser(freshUser);
       }
     } catch (error) {
       console.error('Error uploading certificate:', error);
@@ -189,6 +192,16 @@ const CertificateUpload = ({ user, updateUser }) => {
                 style={{ marginTop: '8px' }}
               >
                 {uploading ? 'Uploading...' : `Upload ${subject} Certificate`}
+              </button>
+            )}
+
+            {!selectedFile && (
+              <button
+                disabled
+                className="upload-btn"
+                style={{ marginTop: '8px', opacity: 0.6, cursor: 'not-allowed' }}
+              >
+                Select file to upload {subject} certificate
               </button>
             )}
           </div>

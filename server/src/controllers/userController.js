@@ -2,6 +2,11 @@ const db = require('../config/database');
 
 const normalizeSubjectKey = (subject) => String(subject || '').trim().toLowerCase();
 
+const hasAtLeastOneApprovedSubject = (user) => {
+  const entries = Object.values(user.subjectVerifications || {});
+  return entries.some((entry) => entry.status === 'approved');
+};
+
 const getVerificationSummary = (user) => {
   const map = user.subjectVerifications || {};
   const entries = Object.values(map);
@@ -124,10 +129,20 @@ class UserController {
       
       // Check if a specific status is requested in body
       if (req.body.hasOwnProperty('isOnline')) {
+        if (user.role === 'tutor' && req.body.isOnline === true && !hasAtLeastOneApprovedSubject(user)) {
+          return res.status(403).json({
+            message: 'You need at least one approved subject certificate to go online'
+          });
+        }
         user.isOnline = req.body.isOnline;
         console.log(`🔄 ${user.name} (${user.role}) set online status to: ${user.isOnline}`);
       } else {
         // Default behavior: toggle
+        if (user.role === 'tutor' && !user.isOnline && !hasAtLeastOneApprovedSubject(user)) {
+          return res.status(403).json({
+            message: 'You need at least one approved subject certificate to go online'
+          });
+        }
         user.isOnline = !user.isOnline;
         console.log(`🔄 ${user.name} (${user.role}) toggled online status to: ${user.isOnline}`);
       }

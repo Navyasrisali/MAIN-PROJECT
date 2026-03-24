@@ -3,6 +3,14 @@ const { TutorRequest } = require('../models');
 const NotificationService = require('../services/notificationService');
 const socketManager = require('../config/socket');
 
+const normalizeSubjectKey = (subject) => String(subject || '').trim().toLowerCase();
+
+const isSubjectApprovedForTutor = (tutor, subject) => {
+  const map = tutor.subjectVerifications || {};
+  const key = normalizeSubjectKey(subject);
+  return Boolean(map[key] && map[key].status === 'approved');
+};
+
 class RequestController {
   static buildJitsiMeetingLink(request, tutor, learner) {
     const safeSubject = (request.subject || 'session').toLowerCase().replace(/[^a-z0-9]+/g, '-');
@@ -14,6 +22,21 @@ class RequestController {
   static async createRequest(req, res) {
     try {
       const { tutorId, subject } = req.body;
+
+      if (!subject || !String(subject).trim()) {
+        return res.status(400).json({ message: 'Subject is required' });
+      }
+
+      const tutor = db.users.find(u => u.id === parseInt(tutorId) && u.role === 'tutor');
+      if (!tutor) {
+        return res.status(404).json({ message: 'Tutor not found' });
+      }
+
+      if (!isSubjectApprovedForTutor(tutor, subject)) {
+        return res.status(403).json({
+          message: `Tutor is not verified to teach ${subject} yet`
+        });
+      }
       
       // Check if learner has pending reviews
       const pendingReviews = db.requests.filter(r => 
@@ -64,6 +87,24 @@ class RequestController {
       if (!request) {
         return res.status(404).json({ message: 'Request not found' });
       }
+
+      // Ensure only the assigned tutor can respond to this request.
+      if (request.tutor !== req.user.id) {
+        return res.status(403).json({ message: 'You are not allowed to respond to this request' });
+      }
+
+      const tutor = db.users.find(u => u.id === request.tutor);
+      const learner = db.users.find(u => u.id === request.learner);
+
+      if (!tutor || !learner) {
+        return res.status(404).json({ message: 'Tutor or learner not found' });
+      }
+
+      if (status === 'accepted' && !isSubjectApprovedForTutor(tutor, request.subject)) {
+        return res.status(403).json({
+          message: `You are not verified for ${request.subject}. Upload and get certificate approved first.`
+        });
+      }
       
       request.status = status;
       db.save(); // Save status change
@@ -71,13 +112,6 @@ class RequestController {
       if (status === 'accepted') {
         // Set session date and generate Jitsi link
         request.sessionDate = new Date();
-        const tutor = db.users.find(u => u.id === request.tutor);
-        const learner = db.users.find(u => u.id === request.learner);
-
-        if (!tutor || !learner) {
-          return res.status(404).json({ message: 'Tutor or learner not found' });
-        }
-
         request.meetingLink = request.meetingLink || this.buildJitsiMeetingLink(request, tutor, learner);
         db.save();
 
