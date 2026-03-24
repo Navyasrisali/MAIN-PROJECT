@@ -6,6 +6,49 @@ const { generateOTP } = require('../utils/helpers');
 const EmailService = require('../services/emailService');
 const NotificationService = require('../services/notificationService');
 
+const normalizeSubjectKey = (subject) => String(subject || '').trim().toLowerCase();
+
+const getVerificationSummary = (user) => {
+  const entries = Object.values(user.subjectVerifications || {});
+  const approvedCount = entries.filter(e => e.status === 'approved').length;
+  const pendingCount = entries.filter(e => e.status === 'pending').length;
+  const rejectedCount = entries.filter(e => e.status === 'rejected').length;
+
+  let verificationStatus = 'not_submitted';
+  if (approvedCount > 0 && pendingCount === 0 && rejectedCount === 0) {
+    verificationStatus = 'approved';
+  } else if (pendingCount > 0) {
+    verificationStatus = 'pending';
+  } else if (rejectedCount > 0) {
+    verificationStatus = 'rejected';
+  }
+
+  return {
+    isVerified: approvedCount > 0,
+    verificationStatus
+  };
+};
+
+const mapUserResponse = (user) => {
+  const summary = getVerificationSummary(user);
+  return {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    subjects: user.subjects || [],
+    isOnline: user.isOnline,
+    rating: user.rating || 0,
+    reviewCount: user.reviewCount || 0,
+    createdAt: user.createdAt,
+    isVerified: summary.isVerified,
+    verificationStatus: summary.verificationStatus,
+    certificateUrl: user.certificateUrl || null,
+    certificateRejectionReason: user.certificateRejectionReason || null,
+    subjectVerifications: user.subjectVerifications || {}
+  };
+};
+
 // Store OTPs temporarily (in production, use Redis or database)
 const otpStore = new Map();
 
@@ -47,20 +90,7 @@ class AuthController {
       
       res.status(201).json({
         token,
-        user: {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          role: user.role,
-          subjects: user.subjects || [],
-          isOnline: user.isOnline,
-          rating: user.rating || 0,
-          reviewCount: user.reviewCount || 0,
-          createdAt: user.createdAt,
-          isVerified: user.isVerified || false,
-          verificationStatus: user.verificationStatus || 'pending',
-          certificateUrl: user.certificateUrl || null
-        }
+        user: mapUserResponse(user)
       });
     } catch (error) {
       res.status(500).json({ message: error.message });
@@ -108,21 +138,7 @@ class AuthController {
       
       res.json({
         token,
-        user: {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          role: user.role,
-          subjects: user.subjects || [],
-          isOnline: user.isOnline,
-          rating: user.rating || 0,
-          reviewCount: user.reviewCount || 0,
-          createdAt: user.createdAt,
-          isVerified: user.isVerified || false,
-          verificationStatus: user.verificationStatus || 'pending',
-          certificateUrl: user.certificateUrl || null,
-          certificateRejectionReason: user.certificateRejectionReason || null
-        }
+        user: mapUserResponse(user)
       });
     } catch (error) {
       res.status(500).json({ message: error.message });
@@ -237,6 +253,7 @@ class AuthController {
   // Upload Certificate
   static async uploadCertificate(req, res) {
     try {
+      const { subject } = req.body;
       const user = db.users.find(u => u.id === req.user.id);
       if (!user) {
         return res.status(404).json({ message: 'User not found' });
@@ -254,25 +271,51 @@ class AuthController {
         return res.status(400).json({ message: 'Please upload a certificate file' });
       }
 
+      if (!subject || !String(subject).trim()) {
+        return res.status(400).json({ message: 'Subject is required for certificate upload' });
+      }
+
+      const subjectKey = normalizeSubjectKey(subject);
+      const matchedSubject = (user.subjects || []).find(s => normalizeSubjectKey(s) === subjectKey);
+      if (!matchedSubject) {
+        return res.status(400).json({ message: 'Selected subject is not in tutor profile' });
+      }
+
+      if (!user.subjectVerifications || typeof user.subjectVerifications !== 'object') {
+        user.subjectVerifications = {};
+      }
+
       // Save certificate URL (relative path)
-      user.certificateUrl = `/uploads/certificates/${req.file.filename}`;
-      user.verificationStatus = 'pending';
-      user.certificateRejectionReason = null;
+      const certificateUrl = `/uploads/certificates/${req.file.filename}`;
+      user.subjectVerifications[subjectKey] = {
+        subject: matchedSubject,
+        status: 'pending',
+        certificateUrl,
+        rejectionReason: null,
+        uploadedAt: new Date().toISOString()
+      };
+
+      const summary = getVerificationSummary(user);
+      user.isVerified = summary.isVerified;
+      user.verificationStatus = summary.verificationStatus;
       db.save();
 
       // Notify all admins
       const admins = db.users.filter(u => u.role === 'admin');
       admins.forEach(admin => {
-        NotificationService.sendNotification(admin.id, {
-          message: `${user.name} has uploaded a certificate for verification`,
-          type: 'certificate_uploaded'
-        });
+        NotificationService.sendNotification(
+          admin.id,
+          `${user.name} uploaded certificate for ${matchedSubject} verification`,
+          'certificate_uploaded'
+        );
       });
 
       res.json({ 
-        message: 'Certificate uploaded successfully. Awaiting admin verification.',
-        certificateUrl: user.certificateUrl,
-        verificationStatus: user.verificationStatus
+        message: `Certificate uploaded for ${matchedSubject}. Awaiting admin verification.`,
+        subject: matchedSubject,
+        certificateUrl,
+        verificationStatus: user.verificationStatus,
+        subjectVerifications: user.subjectVerifications
       });
     } catch (error) {
       console.error('Error uploading certificate:', error);

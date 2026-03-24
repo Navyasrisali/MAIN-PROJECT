@@ -16,7 +16,7 @@ const AdminDashboard = () => {
   const [loading, setLoading] = useState(false);
   const [selectedCertificate, setSelectedCertificate] = useState(null);
   const [rejectionReason, setRejectionReason] = useState('');
-  const [selectedTutorForRejection, setSelectedTutorForRejection] = useState(null);
+  const [selectedVerificationForRejection, setSelectedVerificationForRejection] = useState(null);
 
   useEffect(() => {
     fetchData();
@@ -46,12 +46,12 @@ const AdminDashboard = () => {
     }
   };
 
-  const handleApprove = async (tutorId) => {
+  const handleApprove = async (tutorId, subject) => {
     if (!window.confirm('Are you sure you want to approve this tutor?')) return;
     
     try {
       const token = localStorage.getItem('token');
-      await axios.put(`${API_BASE_URL}/api/admin/tutors/${tutorId}/approve`, {}, {
+      await axios.put(`${API_BASE_URL}/api/admin/tutors/${tutorId}/approve`, { subject }, {
         headers: { Authorization: `Bearer ${token}` }
       });
       alert('Tutor approved successfully!');
@@ -70,12 +70,12 @@ const AdminDashboard = () => {
     
     try {
       const token = localStorage.getItem('token');
-      await axios.put(`${API_BASE_URL}/api/admin/tutors/${selectedTutorForRejection}/reject`, 
-        { reason: rejectionReason },
+      await axios.put(`${API_BASE_URL}/api/admin/tutors/${selectedVerificationForRejection.tutorId}/reject`, 
+        { reason: rejectionReason, subject: selectedVerificationForRejection.subject },
         { headers: { Authorization: `Bearer ${token}` } }
       );
       alert('Tutor rejected successfully!');
-      setSelectedTutorForRejection(null);
+      setSelectedVerificationForRejection(null);
       setRejectionReason('');
       fetchData();
     } catch (error) {
@@ -99,21 +99,21 @@ const AdminDashboard = () => {
             <tr>
               <th>Tutor Name</th>
               <th>Email</th>
-              <th>Subjects</th>
+              <th>Subject</th>
               <th>Certificate</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
-            {pendingVerifications.map(tutor => (
-              <tr key={tutor.id}>
-                <td>{tutor.name}</td>
-                <td>{tutor.email}</td>
-                <td>{tutor.subjects?.join(', ') || 'None'}</td>
+            {pendingVerifications.map(item => (
+              <tr key={`${item.tutorId}-${item.subjectKey}`}>
+                <td>{item.name}</td>
+                <td>{item.email}</td>
+                <td>{item.subject}</td>
                 <td>
                   <button 
                     className="btn-view"
-                    onClick={() => viewCertificate(`${API_BASE_URL}${tutor.certificateUrl}`)}
+                    onClick={() => viewCertificate(`${API_BASE_URL}${item.certificateUrl}`)}
                   >
                     View Certificate
                   </button>
@@ -121,13 +121,13 @@ const AdminDashboard = () => {
                 <td>
                   <button 
                     className="btn-approve"
-                    onClick={() => handleApprove(tutor.id)}
+                    onClick={() => handleApprove(item.tutorId, item.subject)}
                   >
                     Approve
                   </button>
                   <button 
                     className="btn-reject"
-                    onClick={() => setSelectedTutorForRejection(tutor.id)}
+                    onClick={() => setSelectedVerificationForRejection(item)}
                   >
                     Reject
                   </button>
@@ -248,11 +248,12 @@ const AdminDashboard = () => {
       )}
 
       {/* Rejection Modal */}
-      {selectedTutorForRejection && (
-        <div className="modal-overlay" onClick={() => setSelectedTutorForRejection(null)}>
+      {selectedVerificationForRejection && (
+        <div className="modal-overlay" onClick={() => setSelectedVerificationForRejection(null)}>
           <div className="modal-content rejection-modal" onClick={e => e.stopPropagation()}>
-            <button className="modal-close" onClick={() => setSelectedTutorForRejection(null)}>×</button>
+            <button className="modal-close" onClick={() => setSelectedVerificationForRejection(null)}>×</button>
             <h3>Reject Certificate</h3>
+            <p><strong>Subject:</strong> {selectedVerificationForRejection.subject}</p>
             <p>Please provide a reason for rejection:</p>
             <textarea
               value={rejectionReason}
@@ -262,7 +263,7 @@ const AdminDashboard = () => {
               className="rejection-textarea"
             />
             <div className="modal-actions">
-              <button className="btn-cancel" onClick={() => setSelectedTutorForRejection(null)}>
+              <button className="btn-cancel" onClick={() => setSelectedVerificationForRejection(null)}>
                 Cancel
               </button>
               <button className="btn-submit" onClick={handleReject}>

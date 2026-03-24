@@ -2,6 +2,8 @@ const fs = require('fs');
 const path = require('path');
 const bcrypt = require('bcryptjs');
 
+const normalizeSubjectKey = (subject) => String(subject || '').trim().toLowerCase();
+
 // In-Memory Database Configuration (for testing without MongoDB)
 class InMemoryDatabase {
   constructor() {
@@ -62,6 +64,44 @@ class InMemoryDatabase {
         // Set all users offline on server startup (since we can't track who was actually online)
         this.users.forEach(user => {
           user.isOnline = false;
+
+          // Migrate legacy single-certificate state to per-subject verification map.
+          if (user.role === 'tutor') {
+            if (!Array.isArray(user.subjects)) {
+              user.subjects = [];
+            }
+
+            if (!user.subjectVerifications || typeof user.subjectVerifications !== 'object') {
+              user.subjectVerifications = {};
+            }
+
+            user.subjects.forEach((subject) => {
+              const subjectKey = normalizeSubjectKey(subject);
+              if (!subjectKey) {
+                return;
+              }
+
+              if (!user.subjectVerifications[subjectKey]) {
+                // Backfill from old global status for existing records.
+                let status = 'not_submitted';
+                if (user.verificationStatus === 'approved' || user.isVerified === true) {
+                  status = 'approved';
+                } else if (user.verificationStatus === 'pending' && user.certificateUrl) {
+                  status = 'pending';
+                } else if (user.verificationStatus === 'rejected') {
+                  status = 'rejected';
+                }
+
+                user.subjectVerifications[subjectKey] = {
+                  subject,
+                  status,
+                  certificateUrl: user.certificateUrl || null,
+                  rejectionReason: user.certificateRejectionReason || null,
+                  uploadedAt: user.createdAt || new Date().toISOString()
+                };
+              }
+            });
+          }
         });
         
         console.log(`✅ Loaded existing data: ${this.users.length} users, ${this.requests.length} requests, ${this.reviews.length} reviews`);

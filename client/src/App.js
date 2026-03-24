@@ -24,6 +24,8 @@ const resolveBackendUrl = (value) => {
 const API_BASE_URL = resolveBackendUrl(process.env.REACT_APP_API_URL);
 const SOCKET_URL = resolveBackendUrl(process.env.REACT_APP_SOCKET_URL || API_BASE_URL);
 
+const normalizeSubjectKey = (subject) => String(subject || '').trim().toLowerCase();
+
 // Set up axios defaults
 axios.defaults.baseURL = `${API_BASE_URL}/api`;
 
@@ -120,11 +122,24 @@ function App() {
                 return currentUser;
               }
 
+              const currentMap = currentUser.subjectVerifications || {};
+              const subjectKey = normalizeSubjectKey(eventData.subject);
+              const updatedMap = { ...currentMap };
+              if (subjectKey) {
+                updatedMap[subjectKey] = {
+                  ...(updatedMap[subjectKey] || {}),
+                  subject: eventData.subject,
+                  status: 'approved',
+                  rejectionReason: null
+                };
+              }
+
               const updatedUser = {
                 ...currentUser,
                 isVerified: true,
                 verificationStatus: 'approved',
-                certificateRejectionReason: null
+                certificateRejectionReason: null,
+                subjectVerifications: updatedMap
               };
               localStorage.setItem('user', JSON.stringify(updatedUser));
               return updatedUser;
@@ -137,11 +152,24 @@ function App() {
                 return currentUser;
               }
 
+              const currentMap = currentUser.subjectVerifications || {};
+              const subjectKey = normalizeSubjectKey(eventData.subject);
+              const updatedMap = { ...currentMap };
+              if (subjectKey) {
+                updatedMap[subjectKey] = {
+                  ...(updatedMap[subjectKey] || {}),
+                  subject: eventData.subject,
+                  status: 'rejected',
+                  rejectionReason: eventData.rejectionReason || null
+                };
+              }
+
               const updatedUser = {
                 ...currentUser,
                 isVerified: false,
                 verificationStatus: 'rejected',
-                certificateRejectionReason: eventData.rejectionReason || null
+                certificateRejectionReason: eventData.rejectionReason || null,
+                subjectVerifications: updatedMap
               };
               localStorage.setItem('user', JSON.stringify(updatedUser));
               return updatedUser;

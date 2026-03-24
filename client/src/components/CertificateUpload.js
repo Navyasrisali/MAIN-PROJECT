@@ -9,31 +9,25 @@ const API_BASE_URL =
     ? process.env.REACT_APP_API_URL
     : FALLBACK_BACKEND_URL;
 
-const getNormalizedStatus = (user) => {
-  const rawStatus = user.verificationStatus || 'pending';
-  const hasUploadedCertificate = Boolean(user.certificateUrl);
+const normalizeSubjectKey = (subject) => String(subject || '').trim().toLowerCase();
 
-  if (!hasUploadedCertificate && rawStatus !== 'approved') {
-    return 'not_submitted';
-  }
-
-  return rawStatus;
+const formatStatus = (status) => {
+  if (status === 'approved') return '✅ Verified';
+  if (status === 'pending') return '⏳ Pending Verification';
+  if (status === 'rejected') return '❌ Rejected';
+  return '📝 Not Submitted';
 };
 
 const CertificateUpload = ({ user, updateUser }) => {
-  const [selectedFile, setSelectedFile] = useState(null);
+  const [selectedFiles, setSelectedFiles] = useState({});
   const [uploading, setUploading] = useState(false);
-  const [verificationStatus, setVerificationStatus] = useState(getNormalizedStatus(user));
-  const [certificateUrl, setCertificateUrl] = useState(user.certificateUrl || null);
-  const [rejectionReason, setRejectionReason] = useState(user.certificateRejectionReason || null);
+  const [subjectVerifications, setSubjectVerifications] = useState(user.subjectVerifications || {});
 
   useEffect(() => {
-    setVerificationStatus(getNormalizedStatus(user));
-    setCertificateUrl(user.certificateUrl || null);
-    setRejectionReason(user.certificateRejectionReason || null);
+    setSubjectVerifications(user.subjectVerifications || {});
   }, [user]);
 
-  const handleFileSelect = (e) => {
+  const handleFileSelect = (subject, e) => {
     const file = e.target.files[0];
     if (file) {
       // Validate file type
@@ -49,30 +43,23 @@ const CertificateUpload = ({ user, updateUser }) => {
         return;
       }
 
-      setSelectedFile(file);
+      setSelectedFiles((prev) => ({ ...prev, [subject]: file }));
     }
   };
 
-  const handleUpload = async () => {
+  const handleUpload = async (subject) => {
+    const selectedFile = selectedFiles[subject];
+
     if (!selectedFile) {
-      alert('Please select a file first');
+      alert(`Please select a certificate file for ${subject}`);
       return;
     }
 
     setUploading(true);
     try {
-      // Keep backend role in sync before certificate upload.
-      const roleSyncResponse = await axios.put(`${API_BASE_URL}/api/user/role`, {
-        role: 'tutor',
-        subjects: user.subjects || []
-      }, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-
       const formData = new FormData();
       formData.append('certificate', selectedFile);
+      formData.append('subject', subject);
 
       const token = localStorage.getItem('token');
       const response = await axios.post(`${API_BASE_URL}/api/upload-certificate`, formData, {
@@ -83,17 +70,16 @@ const CertificateUpload = ({ user, updateUser }) => {
       });
 
       alert(response.data.message);
-      setVerificationStatus(response.data.verificationStatus);
-      setCertificateUrl(response.data.certificateUrl);
-      setSelectedFile(null);
+      setSelectedFiles((prev) => ({ ...prev, [subject]: null }));
+      setSubjectVerifications(response.data.subjectVerifications || {});
       
       // Update user state
       if (updateUser) {
         updateUser({
           ...user,
-          role: roleSyncResponse?.data?.user?.role || 'tutor',
+          role: 'tutor',
           verificationStatus: response.data.verificationStatus,
-          certificateUrl: response.data.certificateUrl
+          subjectVerifications: response.data.subjectVerifications || {}
         });
       }
     } catch (error) {
@@ -104,129 +90,110 @@ const CertificateUpload = ({ user, updateUser }) => {
     }
   };
 
-  const getStatusBadge = () => {
-    switch (verificationStatus) {
-      case 'not_submitted':
-        return <span className="status-badge pending">📝 Not Submitted</span>;
-      case 'pending':
-        return <span className="status-badge pending">⏳ Pending Verification</span>;
-      case 'approved':
-        return <span className="status-badge approved">✅ Verified</span>;
-      case 'rejected':
-        return <span className="status-badge rejected">❌ Rejected</span>;
-      default:
-        return <span className="status-badge pending">⏳ Not Submitted</span>;
-    }
+  const tutorSubjects = user.subjects || [];
+
+  const getSubjectVerification = (subject) => {
+    const key = normalizeSubjectKey(subject);
+    return subjectVerifications[key] || {
+      subject,
+      status: 'not_submitted',
+      certificateUrl: null,
+      rejectionReason: null
+    };
   };
 
   return (
     <div className="certificate-upload-section">
       <div className="certificate-header">
-        <h3>Certificate Verification</h3>
-        {getStatusBadge()}
+        <h3>Subject-wise Certificate Verification</h3>
       </div>
 
-      {!user.isVerified && (
+      {!tutorSubjects.length && (
+        <div className="verification-info">
+          <p><strong>ℹ️ Add subjects first.</strong> Then upload one certificate for each subject.</p>
+        </div>
+      )}
+
+      {!!tutorSubjects.length && (
         <div className="verification-info">
           <p>
-            <strong>⚠️ Important:</strong> You must upload and get your certificate verified before you can start teaching. 
-            Only verified tutors will appear in learner searches.
+            <strong>⚠️ Important:</strong> Each subject needs its own approved certificate.
+            Learners can find you only for subjects with approved verification.
           </p>
         </div>
       )}
 
-      {verificationStatus === 'rejected' && rejectionReason && (
-        <div className="rejection-notice">
-          <h4>Rejection Reason:</h4>
-          <p>{rejectionReason}</p>
-          <p className="reupload-text">Please upload a valid certificate to continue.</p>
-        </div>
-      )}
+      {tutorSubjects.map((subject) => {
+        const verification = getSubjectVerification(subject);
+        const selectedFile = selectedFiles[subject];
 
-      {verificationStatus === 'pending' && certificateUrl && (
-        <div className="pending-notice">
-          <p>✓ Certificate uploaded successfully! Awaiting admin verification.</p>
-          <a 
-            href={`${API_BASE_URL}${certificateUrl}`} 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="view-certificate-link"
-          >
-            View Uploaded Certificate
-          </a>
-        </div>
-      )}
+        return (
+          <div key={subject} className="upload-form" style={{ marginBottom: '16px' }}>
+            <div style={{ marginBottom: '8px' }}>
+              <strong>{subject}</strong>{' '}
+              <span className={`status-badge ${verification.status || 'pending'}`}>
+                {formatStatus(verification.status)}
+              </span>
+            </div>
 
-      {verificationStatus === 'approved' && (
-        <div className="approved-notice">
-          <p>🎉 Congratulations! Your certificate has been verified. You can now start teaching!</p>
-          {certificateUrl && (
-            <a 
-              href={`${API_BASE_URL}${certificateUrl}`} 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="view-certificate-link"
-            >
-              View Your Certificate
-            </a>
-          )}
-        </div>
-      )}
+            {verification.rejectionReason && (
+              <div className="rejection-notice" style={{ marginBottom: '8px' }}>
+                <h4>Rejection Reason:</h4>
+                <p>{verification.rejectionReason}</p>
+              </div>
+            )}
 
-      {(verificationStatus === 'not_submitted' || verificationStatus === 'rejected') && (
-        <div className="upload-form">
-          <div className="file-input-wrapper">
-            <label htmlFor="certificate-file" className="file-label">
-              {selectedFile ? (
-                <>
-                  <span className="file-icon">📄</span>
-                  <span className="file-name">{selectedFile.name}</span>
-                  <span className="file-size">({(selectedFile.size / 1024).toFixed(2)} KB)</span>
-                </>
-              ) : (
-                <>
-                  <span className="upload-icon">📤</span>
-                  <span>Choose Certificate File</span>
-                  <span className="file-hint">(PDF, JPEG, or PNG - Max 5MB)</span>
-                </>
-              )}
-            </label>
-            <input
-              type="file"
-              id="certificate-file"
-              accept=".pdf,.jpg,.jpeg,.png"
-              onChange={handleFileSelect}
-              className="file-input"
-            />
+            {verification.certificateUrl && (
+              <div style={{ marginBottom: '8px' }}>
+                <a
+                  href={`${API_BASE_URL}${verification.certificateUrl}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="view-certificate-link"
+                >
+                  View Uploaded Certificate
+                </a>
+              </div>
+            )}
+
+            <div className="file-input-wrapper">
+              <label htmlFor={`certificate-file-${subject}`} className="file-label">
+                {selectedFile ? (
+                  <>
+                    <span className="file-icon">📄</span>
+                    <span className="file-name">{selectedFile.name}</span>
+                    <span className="file-size">({(selectedFile.size / 1024).toFixed(2)} KB)</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="upload-icon">📤</span>
+                    <span>Choose certificate for {subject}</span>
+                    <span className="file-hint">(PDF, JPEG, or PNG - Max 5MB)</span>
+                  </>
+                )}
+              </label>
+              <input
+                type="file"
+                id={`certificate-file-${subject}`}
+                accept=".pdf,.jpg,.jpeg,.png"
+                onChange={(e) => handleFileSelect(subject, e)}
+                className="file-input"
+              />
+            </div>
+
+            {selectedFile && (
+              <button
+                onClick={() => handleUpload(subject)}
+                disabled={uploading}
+                className="upload-btn"
+                style={{ marginTop: '8px' }}
+              >
+                {uploading ? 'Uploading...' : `Upload ${subject} Certificate`}
+              </button>
+            )}
           </div>
-
-          {selectedFile && (
-            <button 
-              onClick={handleUpload} 
-              disabled={uploading}
-              className="upload-btn"
-            >
-              {uploading ? 'Uploading...' : 'Upload Certificate'}
-            </button>
-          )}
-        </div>
-      )}
-
-      {verificationStatus === 'pending' && (
-        <div className="reupload-section">
-          <p>Need to upload a different certificate?</p>
-          <button 
-            onClick={() => {
-              setCertificateUrl(null);
-              setSelectedFile(null);
-              setVerificationStatus('not_submitted');
-            }}
-            className="reupload-btn"
-          >
-            Upload New Certificate
-          </button>
-        </div>
-      )}
+        );
+      })}
     </div>
   );
 };

@@ -1,5 +1,7 @@
 const db = require('../config/database');
 
+const normalizeSubjectKey = (subject) => String(subject || '').trim().toLowerCase();
+
 class TutorController {
   // Add subjects to tutor profile
   static async addSubject(req, res) {
@@ -73,15 +75,21 @@ class TutorController {
       const tutors = db.users.filter(user => {
         const isRightRole = user.role === 'tutor';
         const isOnline = user.isOnline;
-        const hasSubject = user.subjects && user.subjects.some(s => 
-          s.toLowerCase().includes(subject.toLowerCase())
-        );
         const isNotSelf = user.id !== req.user.id; // Don't show the searcher in results
-        const isVerified = user.isVerified === true; // Only show verified tutors
+
+        const subjectMatches = (user.subjects || []).filter(s =>
+          String(s || '').toLowerCase().includes(subject.toLowerCase())
+        );
+
+        const verificationMap = user.subjectVerifications || {};
+        const hasApprovedCertificateForMatch = subjectMatches.some((matchedSubject) => {
+          const key = normalizeSubjectKey(matchedSubject);
+          return verificationMap[key] && verificationMap[key].status === 'approved';
+        });
         
-        console.log(`  Checking ${user.name}: role=${user.role}, online=${isOnline}, hasSubject=${hasSubject}, isNotSelf=${isNotSelf}, verified=${isVerified}`);
+        console.log(`  Checking ${user.name}: role=${user.role}, online=${isOnline}, approvedForMatch=${hasApprovedCertificateForMatch}, isNotSelf=${isNotSelf}`);
         
-        return isRightRole && isOnline && hasSubject && isNotSelf && isVerified;
+        return isRightRole && isOnline && hasApprovedCertificateForMatch && isNotSelf;
       }).map(user => {
         return {
           id: user.id,

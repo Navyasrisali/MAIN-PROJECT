@@ -15,6 +15,8 @@ class User {
     this.verificationStatus = data.verificationStatus || 'pending'; // pending, approved, rejected
     this.certificateUrl = data.certificateUrl || null;
     this.certificateRejectionReason = data.certificateRejectionReason || null;
+    // Subject-level verification map: { [normalizedSubject]: { subject, status, certificateUrl, rejectionReason } }
+    this.subjectVerifications = data.subjectVerifications || {};
   }
 
   toJSON() {
@@ -32,7 +34,8 @@ class User {
       isVerified: this.isVerified,
       verificationStatus: this.verificationStatus,
       certificateUrl: this.certificateUrl,
-      certificateRejectionReason: this.certificateRejectionReason
+      certificateRejectionReason: this.certificateRejectionReason,
+      subjectVerifications: this.subjectVerifications
     };
   }
 }

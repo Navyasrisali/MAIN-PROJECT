@@ -6,6 +6,8 @@ import JitsiMeeting from './JitsiMeeting';
 import './TutorPage.css';
 import './ReviewAlert.css';
 
+const normalizeSubjectKey = (subject) => String(subject || '').trim().toLowerCase();
+
 const TutorPage = ({ user, updateUser, notifications, setNotifications, socket }) => {
   const [subjects, setSubjects] = useState(user.subjects || []);
   const [newSubject, setNewSubject] = useState('');
@@ -136,11 +138,26 @@ const TutorPage = ({ user, updateUser, notifications, setNotifications, socket }
       const handleCertificateVerified = (data) => {
         console.log('✅ TutorPage: Certificate verified event received:', data);
         if (data.tutorId === user.id) {
+          const subjectKey = normalizeSubjectKey(data.subject);
+
           // Update user object immediately
           updateUser((prevUser) => ({
             ...prevUser,
             isVerified: true,
-            verificationStatus: 'approved'
+            verificationStatus: 'approved',
+            subjectVerifications: {
+              ...(prevUser.subjectVerifications || {}),
+              ...(subjectKey
+                ? {
+                    [subjectKey]: {
+                      ...((prevUser.subjectVerifications || {})[subjectKey] || {}),
+                      subject: data.subject,
+                      status: 'approved',
+                      rejectionReason: null
+                    }
+                  }
+                : {})
+            }
           }));
           
           // Show success notification
@@ -158,12 +175,27 @@ const TutorPage = ({ user, updateUser, notifications, setNotifications, socket }
       const handleCertificateRejected = (data) => {
         console.log('❌ TutorPage: Certificate rejected event received:', data);
         if (data.tutorId === user.id) {
+          const subjectKey = normalizeSubjectKey(data.subject);
+
           // Update user object immediately
           updateUser((prevUser) => ({
             ...prevUser,
             isVerified: false,
             verificationStatus: 'rejected',
-            certificateRejectionReason: data.rejectionReason || null
+            certificateRejectionReason: data.rejectionReason || null,
+            subjectVerifications: {
+              ...(prevUser.subjectVerifications || {}),
+              ...(subjectKey
+                ? {
+                    [subjectKey]: {
+                      ...((prevUser.subjectVerifications || {})[subjectKey] || {}),
+                      subject: data.subject,
+                      status: 'rejected',
+                      rejectionReason: data.rejectionReason || null
+                    }
+                  }
+                : {})
+            }
           }));
           
           // Show error notification
