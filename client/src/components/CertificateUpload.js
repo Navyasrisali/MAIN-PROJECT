@@ -73,17 +73,29 @@ const CertificateUpload = ({ user, updateUser }) => {
       setSelectedFiles((prev) => ({ ...prev, [subject]: null }));
       setSubjectVerifications(response.data.subjectVerifications || {});
 
+      // Immediately update parent from upload response so UI reflects success even if profile sync fails.
+      if (updateUser) {
+        updateUser((prevUser) => ({
+          ...prevUser,
+          verificationStatus: response.data.verificationStatus,
+          subjectVerifications: response.data.subjectVerifications || prevUser.subjectVerifications || {}
+        }));
+      }
+
       // Re-sync from server to avoid any stale local state after upload.
-      const profileResponse = await axios.get(`${API_BASE_URL}/api/user/me`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
+      try {
+        const profileResponse = await axios.get(`${API_BASE_URL}/api/user/me`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        const freshUser = profileResponse?.data?.user;
+
+        if (updateUser && freshUser) {
+          updateUser(freshUser);
         }
-      });
-      const freshUser = profileResponse?.data?.user;
-      
-      // Update user state
-      if (updateUser && freshUser) {
-        updateUser(freshUser);
+      } catch (syncError) {
+        console.warn('Profile re-sync skipped after upload:', syncError?.response?.data || syncError.message);
       }
     } catch (error) {
       console.error('Error uploading certificate:', error);
