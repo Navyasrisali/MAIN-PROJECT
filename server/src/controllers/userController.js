@@ -1,6 +1,36 @@
 const db = require('../config/database');
 
 class UserController {
+  // Get current authenticated user profile
+  static async getCurrentUser(req, res) {
+    try {
+      const user = db.users.find(u => u.id === req.user.id);
+      if (!user) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+
+      res.json({
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          subjects: user.subjects || [],
+          isOnline: user.isOnline,
+          rating: user.rating || 0,
+          reviewCount: user.reviewCount || 0,
+          createdAt: user.createdAt,
+          isVerified: user.isVerified || false,
+          verificationStatus: user.verificationStatus || 'pending',
+          certificateUrl: user.certificateUrl || null,
+          certificateRejectionReason: user.certificateRejectionReason || null
+        }
+      });
+    } catch (error) {
+      res.status(500).json({ message: error.message });
+    }
+  }
+
   // Update user role and subjects
   static async updateRole(req, res) {
     try {

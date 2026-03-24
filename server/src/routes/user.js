@@ -8,6 +8,7 @@ const router = express.Router();
 router.use(authMiddleware);
 
 // User management routes
+router.get('/me', UserController.getCurrentUser);
 router.put('/role', UserController.updateRole);
 router.put('/online', UserController.toggleOnlineStatus);
 router.put('/update-email', UserController.updateEmail);

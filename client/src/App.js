@@ -45,6 +45,19 @@ function App() {
         const userData = JSON.parse(localStorage.getItem('user'));
         if (userData) {
           setUser(userData);
+
+          // Refresh user data from server to avoid stale local verification state.
+          axios.get('/user/me')
+            .then((profileResponse) => {
+              const serverUser = profileResponse?.data?.user;
+              if (serverUser) {
+                setUser(serverUser);
+                localStorage.setItem('user', JSON.stringify(serverUser));
+              }
+            })
+            .catch((profileError) => {
+              console.warn('Unable to refresh user profile from server:', profileError?.response?.data || profileError.message);
+            });
           
           // Initialize socket connection
           const newSocket = io(SOCKET_URL);

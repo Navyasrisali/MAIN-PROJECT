@@ -5,38 +5,52 @@ const JitsiMeeting = ({ sessionId, tutorName, learnerName, onSessionEnded }) => 
   const jitsiContainerRef = useRef(null);
   const jitsiApiRef = useRef(null);
   const sessionCompletedRef = useRef(false);
+  const onSessionEndedRef = useRef(onSessionEnded);
 
   useEffect(() => {
-    const script = document.createElement('script');
-    script.src = 'https://meet.jit.si/external_api.js';
-    script.async = true;
+    onSessionEndedRef.current = onSessionEnded;
+  }, [onSessionEnded]);
 
-    script.onload = () => {
-      if (!window.JitsiMeetExternalAPI) {
-        console.error('JitsiMeetExternalAPI not available');
+  useEffect(() => {
+    sessionCompletedRef.current = false;
+
+    const initializeMeeting = () => {
+      if (!window.JitsiMeetExternalAPI || !jitsiContainerRef.current) {
         return;
       }
+
+      if (jitsiApiRef.current) {
+        try {
+          jitsiApiRef.current.dispose();
+        } catch (error) {
+          console.error('Error disposing previous Jitsi instance:', error);
+        }
+        jitsiApiRef.current = null;
+      }
+
+      jitsiContainerRef.current.innerHTML = '';
 
       const options = {
         roomName: `peer-${sessionId}`,
         parentNode: jitsiContainerRef.current,
         configOverwrite: {
           disableSimulcast: false,
+          prejoinPageEnabled: false,
+          disableDeepLinking: true
         },
         interfaceConfigOverwrite: {
           DEFAULT_BACKGROUND: '#000000',
-          HIDE_INVITE_MORE_HEADER: true,
+          HIDE_INVITE_MORE_HEADER: true
         },
         userInfo: {
-          displayName: learnerName || 'Student',
-        },
+          displayName: tutorName || learnerName || 'Peer User'
+        }
       };
 
       try {
         const api = new window.JitsiMeetExternalAPI('meet.jit.si', options);
         jitsiApiRef.current = api;
 
-        // Listen for when conference is left.
         api.addEventListener('videoConferenceLeft', async () => {
           console.log('✅ JitsiMeeting: Conference ended');
 
@@ -49,8 +63,8 @@ const JitsiMeeting = ({ sessionId, tutorName, learnerName, onSessionEnded }) => 
             await axios.put(`/request/${sessionId}/complete`);
             console.log('✅ JitsiMeeting: Session marked as complete on server');
 
-            if (onSessionEnded) {
-              onSessionEnded();
+            if (onSessionEndedRef.current) {
+              onSessionEndedRef.current();
             }
           } catch (error) {
             console.error('❌ JitsiMeeting: Error completing session:', error);
@@ -61,7 +75,20 @@ const JitsiMeeting = ({ sessionId, tutorName, learnerName, onSessionEnded }) => 
       }
     };
 
-    document.head.appendChild(script);
+    if (window.JitsiMeetExternalAPI) {
+      initializeMeeting();
+    } else {
+      const existingScript = document.querySelector('script[src="https://meet.jit.si/external_api.js"]');
+      if (existingScript) {
+        existingScript.addEventListener('load', initializeMeeting, { once: true });
+      } else {
+        const script = document.createElement('script');
+        script.src = 'https://meet.jit.si/external_api.js';
+        script.async = true;
+        script.addEventListener('load', initializeMeeting, { once: true });
+        document.head.appendChild(script);
+      }
+    }
 
     return () => {
       // Cleanup
@@ -71,12 +98,10 @@ const JitsiMeeting = ({ sessionId, tutorName, learnerName, onSessionEnded }) => 
         } catch (error) {
           console.error('Error disposing Jitsi API:', error);
         }
-      }
-      if (script.parentNode) {
-        document.head.removeChild(script);
+        jitsiApiRef.current = null;
       }
     };
-  }, [sessionId, learnerName, onSessionEnded]);
+  }, [sessionId, learnerName, tutorName]);
 
   return (
     <div style={{ width: '100%', height: '600px' }}>
