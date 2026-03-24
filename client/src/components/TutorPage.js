@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import NotificationBar from './NotificationBar';
 import CertificateUpload from './CertificateUpload';
+import JitsiMeeting from './JitsiMeeting';
 import './TutorPage.css';
 import './ReviewAlert.css';
 
@@ -12,6 +13,7 @@ const TutorPage = ({ user, updateUser, notifications, setNotifications, socket }
   const [requests, setRequests] = useState([]);
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [activeSession, setActiveSession] = useState(null);
   const isFetchingRequests = useRef(false);
   const isFetchingSessions = useRef(false);
   
@@ -135,11 +137,11 @@ const TutorPage = ({ user, updateUser, notifications, setNotifications, socket }
         console.log('✅ TutorPage: Certificate verified event received:', data);
         if (data.tutorId === user.id) {
           // Update user object immediately
-          updateUser({
-            ...user,
+          updateUser((prevUser) => ({
+            ...prevUser,
             isVerified: true,
             verificationStatus: 'approved'
-          });
+          }));
           
           // Show success notification
           setNewReviewAlert({
@@ -157,11 +159,12 @@ const TutorPage = ({ user, updateUser, notifications, setNotifications, socket }
         console.log('❌ TutorPage: Certificate rejected event received:', data);
         if (data.tutorId === user.id) {
           // Update user object immediately
-          updateUser({
-            ...user,
+          updateUser((prevUser) => ({
+            ...prevUser,
             isVerified: false,
-            verificationStatus: 'rejected'
-          });
+            verificationStatus: 'rejected',
+            certificateRejectionReason: data.rejectionReason || null
+          }));
           
           // Show error notification
           setNewReviewAlert({
@@ -183,7 +186,7 @@ const TutorPage = ({ user, updateUser, notifications, setNotifications, socket }
         socket.off('certificate:rejected', handleCertificateRejected);
       };
     }
-  }, [socket, user.id]);
+  }, [socket, user.id, updateUser]);
 
   const fetchRequests = async () => {
     if (isFetchingRequests.current) {
@@ -238,12 +241,12 @@ const TutorPage = ({ user, updateUser, notifications, setNotifications, socket }
         ? sessionsWithReviews.reduce((sum, session) => sum + session.review.rating, 0) / totalReviews 
         : 0;
       
-      // Update user object with calculated values using updateUser prop
-      updateUser({
-        ...user,
+      // Update user object without overriding other fresh user fields.
+      updateUser((prevUser) => ({
+        ...prevUser,
         rating: averageRating,
         reviewCount: totalReviews
-      });
+      }));
       
     } catch (error) {
       console.error('❌ TutorPage: Error fetching sessions:', error);
@@ -401,27 +404,20 @@ const TutorPage = ({ user, updateUser, notifications, setNotifications, socket }
   };
 
   const handleStartJitsiMeeting = (session) => {
-    const fallbackLink = `https://meet.jit.si/peer-${session.id}`;
-    const meetingLink = session.meetingLink || fallbackLink;
+    setActiveSession(session);
+  };
 
-    const meetingWindow = window.open(meetingLink, '_blank', 'noopener,noreferrer');
-    if (!meetingWindow) {
-      alert('Unable to open Jitsi meeting. Please allow pop-ups for this site.');
+  const handleSessionEnded = async () => {
+    if (!activeSession) {
       return;
     }
 
-    // Auto-complete session when tutor closes the Jitsi tab/window.
-    const closeWatcher = setInterval(async () => {
-      if (meetingWindow.closed) {
-        clearInterval(closeWatcher);
-        try {
-          await completeSession(session.id);
-          await fetchSessions();
-        } catch (error) {
-          console.error('Error auto-completing session after Jitsi close:', error);
-        }
-      }
-    }, 2000);
+    try {
+      await completeSession(activeSession.id);
+      await Promise.all([fetchRequests(), fetchSessions()]);
+    } finally {
+      setActiveSession(null);
+    }
   };
 
   if (subjectSetup) {
@@ -655,9 +651,6 @@ const TutorPage = ({ user, updateUser, notifications, setNotifications, socket }
               <div className="no-sessions">
                 <p>No sessions yet.</p>
                 <p>Accept some requests to start teaching!</p>
-                <p style={{ fontSize: '12px', color: '#666', marginTop: '10px' }}>
-                  Debug: User ID = {user.id}, Sessions count = {sessions.length}
-                </p>
               </div>
             ) : (
               <div className="sessions-list">
@@ -760,6 +753,26 @@ const TutorPage = ({ user, updateUser, notifications, setNotifications, socket }
             <small style={{ color: '#666' }}>Reviews: {user.reviewCount}, Rating: {user.rating}</small>
           </div>
         </div>
+
+        {activeSession && (
+          <div className="modal-overlay" onClick={() => setActiveSession(null)}>
+            <div className="modal-content jitsi-meeting-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header">
+                <h3>Live Session: {activeSession.subject}</h3>
+                <button className="close-btn" onClick={() => setActiveSession(null)}>
+                  ×
+                </button>
+              </div>
+              <div className="modal-body">
+                <JitsiMeeting
+                  sessionId={activeSession.id}
+                  tutorName={user.name}
+                  onSessionEnded={handleSessionEnded}
+                />
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

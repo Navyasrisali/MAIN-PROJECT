@@ -9,15 +9,26 @@ const API_BASE_URL =
     ? process.env.REACT_APP_API_URL
     : FALLBACK_BACKEND_URL;
 
+const getNormalizedStatus = (user) => {
+  const rawStatus = user.verificationStatus || 'pending';
+  const hasUploadedCertificate = Boolean(user.certificateUrl);
+
+  if (!hasUploadedCertificate && rawStatus !== 'approved') {
+    return 'not_submitted';
+  }
+
+  return rawStatus;
+};
+
 const CertificateUpload = ({ user, updateUser }) => {
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploading, setUploading] = useState(false);
-  const [verificationStatus, setVerificationStatus] = useState(user.verificationStatus || 'pending');
+  const [verificationStatus, setVerificationStatus] = useState(getNormalizedStatus(user));
   const [certificateUrl, setCertificateUrl] = useState(user.certificateUrl || null);
   const [rejectionReason, setRejectionReason] = useState(user.certificateRejectionReason || null);
 
   useEffect(() => {
-    setVerificationStatus(user.verificationStatus || 'pending');
+    setVerificationStatus(getNormalizedStatus(user));
     setCertificateUrl(user.certificateUrl || null);
     setRejectionReason(user.certificateRejectionReason || null);
   }, [user]);
@@ -95,6 +106,8 @@ const CertificateUpload = ({ user, updateUser }) => {
 
   const getStatusBadge = () => {
     switch (verificationStatus) {
+      case 'not_submitted':
+        return <span className="status-badge pending">📝 Not Submitted</span>;
       case 'pending':
         return <span className="status-badge pending">⏳ Pending Verification</span>;
       case 'approved':
@@ -160,7 +173,7 @@ const CertificateUpload = ({ user, updateUser }) => {
         </div>
       )}
 
-      {(verificationStatus !== 'approved' && verificationStatus !== 'pending') && (
+      {(verificationStatus === 'not_submitted' || verificationStatus === 'rejected') && (
         <div className="upload-form">
           <div className="file-input-wrapper">
             <label htmlFor="certificate-file" className="file-label">
@@ -204,8 +217,9 @@ const CertificateUpload = ({ user, updateUser }) => {
           <p>Need to upload a different certificate?</p>
           <button 
             onClick={() => {
-              setVerificationStatus('rejected');
               setCertificateUrl(null);
+              setSelectedFile(null);
+              setVerificationStatus('not_submitted');
             }}
             className="reupload-btn"
           >

@@ -100,6 +100,40 @@ function App() {
               return currentUser;
             });
           });
+
+          newSocket.on('certificate:verified', (eventData) => {
+            setUser(currentUser => {
+              if (!currentUser || currentUser.id !== eventData.tutorId) {
+                return currentUser;
+              }
+
+              const updatedUser = {
+                ...currentUser,
+                isVerified: true,
+                verificationStatus: 'approved',
+                certificateRejectionReason: null
+              };
+              localStorage.setItem('user', JSON.stringify(updatedUser));
+              return updatedUser;
+            });
+          });
+
+          newSocket.on('certificate:rejected', (eventData) => {
+            setUser(currentUser => {
+              if (!currentUser || currentUser.id !== eventData.tutorId) {
+                return currentUser;
+              }
+
+              const updatedUser = {
+                ...currentUser,
+                isVerified: false,
+                verificationStatus: 'rejected',
+                certificateRejectionReason: eventData.rejectionReason || null
+              };
+              localStorage.setItem('user', JSON.stringify(updatedUser));
+              return updatedUser;
+            });
+          });
           
           // Update user online status when socket connects
           newSocket.on('connect', () => {
@@ -174,9 +208,18 @@ function App() {
     setNotifications([]);
   };
 
-  const updateUser = (updatedUser) => {
-    setUser(updatedUser);
-    localStorage.setItem('user', JSON.stringify(updatedUser));
+  const updateUser = (updatedUserOrFn) => {
+    setUser((currentUser) => {
+      const nextUser = typeof updatedUserOrFn === 'function'
+        ? updatedUserOrFn(currentUser)
+        : updatedUserOrFn;
+
+      if (nextUser) {
+        localStorage.setItem('user', JSON.stringify(nextUser));
+      }
+
+      return nextUser;
+    });
   };
 
   if (loading) {

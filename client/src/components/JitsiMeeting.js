@@ -36,48 +36,25 @@ const JitsiMeeting = ({ sessionId, tutorName, learnerName, onSessionEnded }) => 
         const api = new window.JitsiMeetExternalAPI('meet.jit.si', options);
         jitsiApiRef.current = api;
 
-        // Listen for when conference is left
-        api.addEventListeners({
-          onConferenceLeft: async () => {
-            console.log('✅ JitsiMeeting: Conference ended');
-            
-            // Prevent duplicate submission
-            if (sessionCompletedRef.current) {
-              console.log('⏭️ JitsiMeeting: Session already marked as completed');
-              return;
+        // Listen for when conference is left.
+        api.addEventListener('videoConferenceLeft', async () => {
+          console.log('✅ JitsiMeeting: Conference ended');
+
+          if (sessionCompletedRef.current) {
+            return;
+          }
+          sessionCompletedRef.current = true;
+
+          try {
+            await axios.put(`/request/${sessionId}/complete`);
+            console.log('✅ JitsiMeeting: Session marked as complete on server');
+
+            if (onSessionEnded) {
+              onSessionEnded();
             }
-            sessionCompletedRef.current = true;
-
-            try {
-              // Auto-complete the session on backend
-              await axios.put(`/request/${sessionId}/complete`);
-              console.log('✅ JitsiMeeting: Session marked as complete on server');
-
-              // Notify parent component
-              if (onSessionEnded) {
-                onSessionEnded();
-              }
-
-              // Auto-request review for learner
-              setTimeout(async () => {
-                try {
-                  const response = await axios.get(`/learning/sessions/${sessionId}`);
-                  const session = response.data;
-                  
-                  if (session && session.learner) {
-                    console.log('📨 JitsiMeeting: Triggering automatic review request');
-                    // The backend will automatically send review request notification
-                    alert('📋 Session completed! Review has been requested from the learner.');
-                  }
-                } catch (err) {
-                  console.error('Error fetching session:', err);
-                }
-              }, 500);
-            } catch (error) {
-              console.error('❌ JitsiMeeting: Error completing session:', error);
-              alert('Error completing session. Please try again.');
-            }
-          },
+          } catch (error) {
+            console.error('❌ JitsiMeeting: Error completing session:', error);
+          }
         });
       } catch (error) {
         console.error('❌ JitsiMeeting: Error initializing Jitsi:', error);
