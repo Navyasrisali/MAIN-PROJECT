@@ -67,10 +67,16 @@ const AdminDashboard = () => {
       alert('Please provide a reason for rejection');
       return;
     }
+
+    const tutorId = selectedVerificationForRejection?.tutorId ?? selectedVerificationForRejection?.id;
+    if (!tutorId) {
+      alert('Unable to identify tutor for rejection. Please refresh and try again.');
+      return;
+    }
     
     try {
       const token = localStorage.getItem('token');
-      await axios.put(`${API_BASE_URL}/api/admin/tutors/${selectedVerificationForRejection.tutorId}/reject`, 
+      await axios.put(`${API_BASE_URL}/api/admin/tutors/${tutorId}/reject`, 
         { reason: rejectionReason, subject: selectedVerificationForRejection.subject },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -105,8 +111,10 @@ const AdminDashboard = () => {
             </tr>
           </thead>
           <tbody>
-            {pendingVerifications.map(item => (
-              <tr key={`${item.tutorId}-${item.subjectKey}`}>
+            {pendingVerifications.map(item => {
+              const tutorId = item.tutorId ?? item.id;
+              return (
+              <tr key={`${tutorId}-${item.subjectKey || item.subject || 'subject'}`}>
                 <td>{item.name}</td>
                 <td>{item.email}</td>
                 <td>{item.subject}</td>
@@ -121,19 +129,19 @@ const AdminDashboard = () => {
                 <td>
                   <button 
                     className="btn-approve"
-                    onClick={() => handleApprove(item.tutorId, item.subject)}
+                    onClick={() => handleApprove(tutorId, item.subject)}
                   >
                     Approve
                   </button>
                   <button 
                     className="btn-reject"
-                    onClick={() => setSelectedVerificationForRejection(item)}
+                    onClick={() => setSelectedVerificationForRejection({ ...item, tutorId })}
                   >
                     Reject
                   </button>
                 </td>
               </tr>
-            ))}
+            )})}
           </tbody>
         </table>
       )}
