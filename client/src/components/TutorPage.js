@@ -128,6 +128,63 @@ const TutorPage = ({ user, updateUser, notifications, setNotifications, socket }
     }
   }, [socket, user.id]);
 
+  // Listen for real-time certificate verification updates
+  useEffect(() => {
+    if (socket) {
+      const handleCertificateVerified = (data) => {
+        console.log('✅ TutorPage: Certificate verified event received:', data);
+        if (data.tutorId === user.id) {
+          // Update user object immediately
+          updateUser({
+            ...user,
+            isVerified: true,
+            verificationStatus: 'approved'
+          });
+          
+          // Show success notification
+          setNewReviewAlert({
+            type: 'certificate',
+            message: '🎉 Your certificate has been verified! You can now start teaching.'
+          });
+          
+          setTimeout(() => {
+            setNewReviewAlert(null);
+          }, 5000);
+        }
+      };
+
+      const handleCertificateRejected = (data) => {
+        console.log('❌ TutorPage: Certificate rejected event received:', data);
+        if (data.tutorId === user.id) {
+          // Update user object immediately
+          updateUser({
+            ...user,
+            isVerified: false,
+            verificationStatus: 'rejected'
+          });
+          
+          // Show error notification
+          setNewReviewAlert({
+            type: 'certificate-rejected',
+            message: `❌ Your certificate was rejected. Reason: ${data.rejectionReason}`
+          });
+          
+          setTimeout(() => {
+            setNewReviewAlert(null);
+          }, 8000);
+        }
+      };
+
+      socket.on('certificate:verified', handleCertificateVerified);
+      socket.on('certificate:rejected', handleCertificateRejected);
+      
+      return () => {
+        socket.off('certificate:verified', handleCertificateVerified);
+        socket.off('certificate:rejected', handleCertificateRejected);
+      };
+    }
+  }, [socket, user.id]);
+
   const fetchRequests = async () => {
     if (isFetchingRequests.current) {
       console.log('⏭️ TutorPage: Already fetching requests, skipping...');

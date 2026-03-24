@@ -66,8 +66,8 @@ const CertificateUpload = ({ user, updateUser }) => {
       const token = localStorage.getItem('token');
       const response = await axios.post(`${API_BASE_URL}/api/upload-certificate`, formData, {
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'multipart/form-data'
+          'Authorization': `Bearer ${token}`
+          // Let axios set Content-Type with proper boundary for multipart
         }
       });
 

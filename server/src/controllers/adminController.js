@@ -1,5 +1,6 @@
 const db = require('../config/database');
 const NotificationService = require('../services/notificationService');
+const socketManager = require('../config/socket');
 const path = require('path');
 const fs = require('fs');
 
@@ -69,6 +70,13 @@ class AdminController {
         'verification'
       );
 
+      // Emit real-time socket event to update tutor immediately
+      socketManager.emitToUser(tutorId, 'certificate:verified', {
+        isVerified: true,
+        verificationStatus: 'approved',
+        tutorId: tutor.id
+      });
+
       res.json({ 
         message: 'Certificate approved successfully',
         tutor: {
@@ -109,6 +117,14 @@ class AdminController {
         `❌ Your certificate verification was rejected. Reason: ${reason}. Please upload a valid certificate.`,
         'verification'
       );
+
+      // Emit real-time socket event to update tutor immediately
+      socketManager.emitToUser(tutorId, 'certificate:rejected', {
+        isVerified: false,
+        verificationStatus: 'rejected',
+        rejectionReason: reason,
+        tutorId: tutor.id
+      });
 
       res.json({ 
         message: 'Certificate rejected',

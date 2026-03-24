@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import ReviewModal from './ReviewModal';
 import NotificationBar from './NotificationBar';
+import JitsiMeeting from './JitsiMeeting';
 import './LearnerPage.css';
 import './CompletedSession.css';
 
@@ -19,6 +20,7 @@ const LearnerPage = ({ user, notifications, setNotifications, socket }) => {
   const [showAllReviewsModal, setShowAllReviewsModal] = useState(false);
   const [selectedTutorReviews, setSelectedTutorReviews] = useState([]);
   const [selectedTutorInfo, setSelectedTutorInfo] = useState(null);
+  const [activeSession, setActiveSession] = useState(null); // For showing Jitsi meeting
 
   useEffect(() => {
     fetchPendingReviews();
@@ -178,9 +180,23 @@ const LearnerPage = ({ user, notifications, setNotifications, socket }) => {
   };
 
   const handleJoinMeeting = (session) => {
-    const fallbackLink = `https://meet.jit.si/peer-${session.id}`;
-    const meetingLink = session.meetingLink || fallbackLink;
-    window.open(meetingLink, '_blank', 'noopener,noreferrer');
+    // Open Jitsi meeting in modal instead of new window
+    setActiveSession(session);
+  };
+
+  const handleSessionEnded = async () => {
+    console.log('✅ LearnerPage: Session ended, refreshing sessions...');
+    // Refresh sessions to show updated status
+    await fetchSessions();
+    // Close the meeting modal
+    setActiveSession(null);
+    // Automatically open review modal after a short delay
+    setTimeout(() => {
+      const completedSession = sessions.find(s => s.id === activeSession?.id && (s.status === 'completed' || s.status === 'reviewed'));
+      if (completedSession) {
+        openReviewModal(completedSession);
+      }
+    }, 1000);
   };
 
   return (
@@ -534,6 +550,31 @@ const LearnerPage = ({ user, notifications, setNotifications, socket }) => {
                   ))}
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Jitsi Meeting Modal */}
+      {activeSession && (
+        <div className="modal-overlay" onClick={() => setActiveSession(null)}>
+          <div className="modal-content jitsi-meeting-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>📹 Live Session with {activeSession.tutor.name}</h3>
+              <button 
+                className="close-btn" 
+                onClick={() => setActiveSession(null)}
+              >
+                ✕
+              </button>
+            </div>
+            <div className="modal-body">
+              <JitsiMeeting 
+                sessionId={activeSession.id}
+                tutorName={activeSession.tutor.name}
+                learnerName={user.name}
+                onSessionEnded={handleSessionEnded}
+              />
             </div>
           </div>
         </div>
